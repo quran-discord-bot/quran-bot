@@ -70,11 +70,10 @@ jobs:
 
       - name: Upload to release
         if: github.event_name == 'release'
-        uses: actions/upload-release-asset@v1
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        uses: actions/upload-artifact@v4
         with:
-          upload_url: ${{ github.event.release.upload_url }}
-          asset_path: /tmp/discord-bot-alpine.tar
-          asset_name: discord-bot-alpine-${{ github.event.release.tag_name }}.tar
-          asset_content_type: application/x-tar
+          name: discord-bot-alpine-release-${{ github.event.release.tag_name }}
+          path: /tmp/discord-bot-alpine.tar
+          retention-days: 0
+          compression-level: 0
+          overwrite: true
