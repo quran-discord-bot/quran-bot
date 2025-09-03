@@ -1,6 +1,12 @@
 #!/usr/bin/env node
 
-const { execSync } = require('child_process');
+import { execSync } from 'child_process';
+import { readFileSync } from 'fs';
+import { dirname, join } from 'path';
+import { fileURLToPath } from 'url';
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = dirname(__filename);
 
 function getCommitsSinceLastTag() {
   try {
@@ -55,7 +61,8 @@ function determineReleaseType(commits) {
 }
 
 function getCurrentVersion() {
-  const packageJson = require('./package.json');
+  const packageJsonPath = join(__dirname, '..', 'package.json');
+  const packageJson = JSON.parse(readFileSync(packageJsonPath, 'utf8'));
   return packageJson.version;
 }
 
