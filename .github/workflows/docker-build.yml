@@ -59,4 +59,4 @@ jobs:
           files: /tmp/discord-bot-alpine.tar
           name: Discord Bot ${{ github.ref_name }}
           generate_release_notes: true
-          token: ${{ secrets.CONTENTS }}
+          token: ${{ secrets.GITHUB_TOKEN }}
