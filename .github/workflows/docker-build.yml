@@ -68,12 +68,8 @@ jobs:
           path: /tmp/discord-bot-alpine.tar
           retention-days: 30
 
-      - name: Upload to release
-        if: github.event_name == 'release'
-        uses: actions/upload-artifact@v4
+      - name: upload binaries to release
+        uses: softprops/action-gh-release@v1
+        if: ${{ startsWith(github.ref, 'refs/tags/') }}
         with:
-          name: discord-bot-alpine-release-${{ github.event.release.tag_name }}
-          path: /tmp/discord-bot-alpine.tar
-          retention-days: 0
-          compression-level: 0
-          overwrite: true
+          files: /tmp/discord-bot-alpine.tar
