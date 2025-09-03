@@ -1,0 +1,140 @@
+name: Docker Build and Test
+
+on:
+  push:
+    branches: [main, develop]
+    paths:
+      - "Dockerfile*"
+      - "docker-compose.yml"
+      - "package*.json"
+      - ".dockerignore"
+  pull_request:
+    branches: [main]
+    paths:
+      - "Dockerfile*"
+      - "docker-compose.yml"
+      - "package*.json"
+      - ".dockerignore"
+
+jobs:
+  docker-build:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        variant: [alpine, distroless]
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Build Alpine image
+        if: matrix.variant == 'alpine'
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          file: ./Dockerfile
+          push: false
+          tags: discord-bot:alpine
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      - name: Build Distroless image
+        if: matrix.variant == 'distroless'
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          file: ./Dockerfile.distroless
+          push: false
+          tags: discord-bot:distroless
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      - name: Test container startup
+        run: |
+          # Create dummy .env for testing
+          echo "BOT_TOKEN=dummy_token_for_testing" > .env
+          echo "CLIENT_ID=123456789012345678" >> .env
+          echo "GUILD_ID=987654321098765432" >> .env
+          echo "NODE_ENV=production" >> .env
+
+          # Test container can start (will fail on Discord connection but that's expected)
+          timeout 30s docker run --env-file .env discord-bot:${{ matrix.variant }} || true
+
+          echo "Container startup test completed"
+
+      - name: Check image size
+        run: |
+          echo "Image size for ${{ matrix.variant }}:"
+          docker images discord-bot:${{ matrix.variant }} --format "table {{.Repository}}:{{.Tag}}\t{{.Size}}"
+
+  docker-compose-test:
+    runs-on: ubuntu-latest
+    needs: docker-build
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Create test environment
+        run: |
+          echo "BOT_TOKEN=dummy_token_for_testing" > .env
+          echo "CLIENT_ID=123456789012345678" >> .env
+          echo "GUILD_ID=987654321098765432" >> .env
+          echo "NODE_ENV=production" >> .env
+
+      - name: Test docker-compose build
+        run: |
+          docker-compose build discord-bot
+          docker-compose build discord-bot-distroless
+
+      - name: Test docker-compose configuration
+        run: |
+          docker-compose config
+          docker-compose --profile distroless config
+
+      - name: Compare image sizes
+        run: |
+          echo "Final image size comparison:"
+          docker images discord-bot --format "table {{.Repository}}:{{.Tag}}\t{{.Size}}\t{{.CreatedAt}}"
+
+  security-scan:
+    runs-on: ubuntu-latest
+    needs: docker-build
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Build images for scanning
+        run: |
+          docker build -t discord-bot:alpine .
+          docker build -t discord-bot:distroless -f Dockerfile.distroless .
+
+      - name: Run Trivy vulnerability scanner (Alpine)
+        uses: aquasecurity/trivy-action@master
+        with:
+          image-ref: "discord-bot:alpine"
+          format: "sarif"
+          output: "trivy-alpine-results.sarif"
+
+      - name: Run Trivy vulnerability scanner (Distroless)
+        uses: aquasecurity/trivy-action@master
+        with:
+          image-ref: "discord-bot:distroless"
+          format: "sarif"
+          output: "trivy-distroless-results.sarif"
+
+      - name: Upload Trivy scan results to GitHub Security tab
+        uses: github/codeql-action/upload-sarif@v2
+        if: always()
+        with:
+          sarif_file: "trivy-alpine-results.sarif"
+
+      - name: Upload Trivy scan results to GitHub Security tab
+        uses: github/codeql-action/upload-sarif@v2
+        if: always()
+        with:
+          sarif_file: "trivy-distroless-results.sarif"

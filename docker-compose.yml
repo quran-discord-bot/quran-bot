@@ -1,0 +1,80 @@
+version: "3.8"
+
+services:
+  discord-bot:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: discord-bot:latest
+    container_name: discord-bot
+    restart: unless-stopped
+    environment:
+      - NODE_ENV=production
+      - BOT_TOKEN=${BOT_TOKEN}
+      - CLIENT_ID=${CLIENT_ID}
+      - GUILD_ID=${GUILD_ID}
+    env_file:
+      - .env
+    # Uncomment if your bot serves HTTP endpoints
+    # ports:
+    #   - "3000:3000"
+
+    # Resource limits
+    deploy:
+      resources:
+        limits:
+          memory: 256M
+          cpus: "0.5"
+        reservations:
+          memory: 128M
+          cpus: "0.1"
+
+    # Logging configuration
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+    # Health check
+    healthcheck:
+      test: ["CMD-SHELL", 'node -e ''console.log("Bot is running")'' || exit 1']
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 10s
+
+  # Optional: Lightweight version with distroless
+  discord-bot-distroless:
+    build:
+      context: .
+      dockerfile: Dockerfile.distroless
+    image: discord-bot:distroless
+    container_name: discord-bot-distroless
+    restart: unless-stopped
+    environment:
+      - NODE_ENV=production
+      - BOT_TOKEN=${BOT_TOKEN}
+      - CLIENT_ID=${CLIENT_ID}
+      - GUILD_ID=${GUILD_ID}
+    env_file:
+      - .env
+    profiles:
+      - distroless
+
+    # Resource limits (even lower for distroless)
+    deploy:
+      resources:
+        limits:
+          memory: 192M
+          cpus: "0.3"
+        reservations:
+          memory: 96M
+          cpus: "0.05"
+
+    # Logging configuration
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"

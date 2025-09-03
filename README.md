@@ -2,6 +2,20 @@
 
 A discord bot by runsha
 
+## 🐳 Quick Start with Docker
+
+The fastest way to run this bot is using Docker:
+
+```bash
+# Windows (PowerShell)
+.\deploy.ps1 alpine
+
+# Linux/macOS
+chmod +x deploy.sh && ./deploy.sh alpine
+```
+
+See [DOCKER.md](./DOCKER.md) for complete Docker deployment guide.
+
 ## Versioning and Changelog
 
 This project uses automated semantic versioning based on conventional commits. The version number and changelog are automatically generated when you push commits to the main branch.
@@ -119,6 +133,26 @@ npm run check-version
 This will analyze your commits and show you what type of release would be created.
 
 ## Getting Started
+
+### 🐳 Docker Deployment (Recommended)
+
+1. Clone the repository
+2. Create a `.env` file with your bot token:
+   ```env
+   BOT_TOKEN=your_discord_bot_token_here
+   NODE_ENV=production
+   ```
+3. Deploy using Docker:
+
+   ```bash
+   # Windows (PowerShell)
+   .\deploy.ps1 distroless
+
+   # Linux/macOS
+   ./deploy.sh distroless
+   ```
+
+### 💻 Local Development
 
 1. Clone the repository
 2. Install dependencies: `npm install`

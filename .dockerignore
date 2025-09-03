@@ -1,0 +1,52 @@
+# Git
+.git
+.gitignore
+.github/
+
+# Documentation
+README.md
+CHANGELOG.md
+VERSIONING.md
+*.md
+
+# Development files
+.husky/
+scripts/
+.versionrc.json
+commitlint.config.js
+eslint.config.js
+
+# Dependencies
+node_modules
+npm-debug.log*
+
+# Environment
+.env
+.env.local
+.env.*.local
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Build artifacts
+dist/
+build/
+
+# Logs
+logs
+*.log
+
+# Coverage
+coverage/
+
+# Docker
+Dockerfile*
+docker-compose*
+.dockerignore
