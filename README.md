@@ -9,8 +9,9 @@ This project uses automated semantic versioning based on conventional commits. T
 ### How It Works
 
 The system follows [Semantic Versioning (SemVer)](https://semver.org/):
+
 - **MAJOR** version when you make incompatible API changes
-- **MINOR** version when you add functionality in a backwards compatible manner  
+- **MINOR** version when you add functionality in a backwards compatible manner
 - **PATCH** version when you make backwards compatible bug fixes
 
 ### Commit Message Format
@@ -26,6 +27,7 @@ Use [Conventional Commits](https://www.conventionalcommits.org/) format:
 ```
 
 #### Types:
+
 - **feat**: A new feature (minor version bump)
 - **fix**: A bug fix (patch version bump)
 - **docs**: Documentation only changes (patch version bump)
@@ -38,6 +40,7 @@ Use [Conventional Commits](https://www.conventionalcommits.org/) format:
 - **chore**: Other changes that don't modify src or test files (patch version bump)
 
 #### Breaking Changes (Major version bump):
+
 - Add `!` after the type/scope: `feat!: remove deprecated API`
 - Or include `BREAKING CHANGE:` in the commit footer
 
@@ -91,6 +94,7 @@ npm run release:dry
 ### Manual Release
 
 You can also trigger releases manually through GitHub Actions:
+
 1. Go to the "Actions" tab in your repository
 2. Select "Manual Release" workflow
 3. Click "Run workflow"
@@ -99,6 +103,7 @@ You can also trigger releases manually through GitHub Actions:
 ### Changelog
 
 The changelog is automatically generated in `CHANGELOG.md` and includes:
+
 - All conventional commits grouped by type
 - Links to commits and issues
 - Release dates and version numbers
@@ -123,6 +128,7 @@ This will analyze your commits and show you what type of release would be create
 ## Contributing
 
 When contributing to this project, please:
+
 1. Follow the conventional commit format
 2. Ensure your commits accurately reflect the type of change
 3. Test your changes before committing

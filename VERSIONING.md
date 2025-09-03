@@ -2,12 +2,12 @@
 
 ## Commit Types → Version Bumps
 
-| Commit Type | Example | Version Impact |
-|-------------|---------|----------------|
-| `fix:` | `fix: resolve login bug` | **Patch** (1.0.1 → 1.0.2) |
-| `feat:` | `feat: add user profiles` | **Minor** (1.0.1 → 1.1.0) |
-| `feat!:` or `BREAKING CHANGE:` | `feat!: change API structure` | **Major** (1.0.1 → 2.0.0) |
-| `docs:`, `style:`, `refactor:`, etc. | `docs: update README` | **Patch** (1.0.1 → 1.0.2) |
+| Commit Type                          | Example                       | Version Impact            |
+| ------------------------------------ | ----------------------------- | ------------------------- |
+| `fix:`                               | `fix: resolve login bug`      | **Patch** (1.0.1 → 1.0.2) |
+| `feat:`                              | `feat: add user profiles`     | **Minor** (1.0.1 → 1.1.0) |
+| `feat!:` or `BREAKING CHANGE:`       | `feat!: change API structure` | **Major** (1.0.1 → 2.0.0) |
+| `docs:`, `style:`, `refactor:`, etc. | `docs: update README`         | **Patch** (1.0.1 → 1.0.2) |
 
 ## Quick Commands
 
@@ -30,12 +30,14 @@ npm run release:dry
 ## Workflow
 
 1. **Write conventional commits**
+
    ```bash
    git commit -m "feat: add new command system"
    git commit -m "fix: handle edge case in user validation"
    ```
 
 2. **Push to main**
+
    ```bash
    git push origin main
    ```
@@ -50,17 +52,20 @@ npm run release:dry
 ## Breaking Changes
 
 To indicate breaking changes, use either:
+
 - `!` after type: `feat!: remove deprecated methods`
-- Footer: 
+- Footer:
+
   ```
   feat: add new authentication system
-  
+
   BREAKING CHANGE: old auth methods no longer supported
   ```
 
 ## Scoped Commits
 
 Add scope for better organization:
+
 ```bash
 git commit -m "feat(commands): add moderation tools"
 git commit -m "fix(database): resolve connection pooling issue"
