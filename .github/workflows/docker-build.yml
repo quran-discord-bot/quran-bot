@@ -5,6 +5,11 @@ on: push
 jobs:
   docker-build:
     runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      packages: write
+      attestations: write
+      id-token: write
 
     steps:
       - name: Checkout code
@@ -13,18 +18,47 @@ jobs:
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
 
+      - name: Log in to GitHub Container Registry
+        if: github.ref_type == 'tag'
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Extract metadata (tags, labels) for Docker
+        if: github.ref_type == 'tag'
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ghcr.io/${{ github.repository }}
+          tags: |
+            type=ref,event=tag
+            type=raw,value=latest,enable={{is_default_branch}}
+
       - name: Build Alpine image
+        id: build
         uses: docker/build-push-action@v5
         with:
           context: .
           file: ./Dockerfile
-          push: false
-          tags: discord-bot:alpine
-          outputs: type=docker,dest=/tmp/discord-bot-alpine.tar
+          push: ${{ github.ref_type == 'tag' }}
+          tags: ${{ github.ref_type == 'tag' && steps.meta.outputs.tags || 'discord-bot:alpine' }}
+          labels: ${{ github.ref_type == 'tag' && steps.meta.outputs.labels || '' }}
+          outputs: ${{ github.ref_type != 'tag' && 'type=docker,dest=/tmp/discord-bot-alpine.tar' || '' }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
 
+      - name: Generate artifact attestation
+        if: github.ref_type == 'tag'
+        uses: actions/attest-build-provenance@v2
+        with:
+          subject-name: ghcr.io/${{ github.repository }}
+          subject-digest: ${{ steps.build.outputs.digest }}
+          push-to-registry: true
+
       - name: Test container startup
+        if: github.ref_type != 'tag'
         run: |
           # Create dummy .env for testing
           echo "BOT_TOKEN=dummy_token_for_testing" > .env
@@ -41,11 +75,13 @@ jobs:
           echo "Container startup test completed"
 
       - name: Check image size
+        if: github.ref_type != 'tag'
         run: |
           echo "Image size for alpine:"
           docker images discord-bot:alpine --format "table {{.Repository}}:{{.Tag}}\t{{.Size}}"
 
       - name: Upload Docker image as artifact
+        if: github.ref_type != 'tag'
         uses: actions/upload-artifact@v4
         with:
           name: discord-bot-alpine-image
