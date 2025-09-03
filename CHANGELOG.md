@@ -2,6 +2,13 @@
 
 All notable changes to this project will be documented in this file. See [standard-version](https://github.com/conventional-changelog/standard-version) for commit guidelines.
 
+## [1.2.0](https://github.com/runsdev/discord-bot/compare/v1.1.0...v1.2.0) (2025-09-03)
+
+
+### Features
+
+* **docker:** added docker environment ([306cae8](https://github.com/runsdev/discord-bot/commit/306cae8f088e229f372340e53683aa5b8ebc306c))
+
 ## 1.1.0 (2025-09-03)
 
 
