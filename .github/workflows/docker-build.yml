@@ -15,6 +15,8 @@ on:
       - "docker-compose.yml"
       - "package*.json"
       - ".dockerignore"
+  release:
+    types: [created]
 
 jobs:
   docker-build:
@@ -34,6 +36,7 @@ jobs:
           file: ./Dockerfile
           push: false
           tags: discord-bot:alpine
+          outputs: type=docker,dest=/tmp/discord-bot-alpine.tar
           cache-from: type=gha
           cache-to: type=gha,mode=max
 
@@ -45,6 +48,9 @@ jobs:
           echo "GUILD_ID=987654321098765432" >> .env
           echo "NODE_ENV=production" >> .env
 
+          # Load the image from tar file
+          docker load -i /tmp/discord-bot-alpine.tar
+
           # Test container can start (will fail on Discord connection but that's expected)
           timeout 30s docker run --env-file .env discord-bot:alpine || true
 
@@ -54,3 +60,21 @@ jobs:
         run: |
           echo "Image size for alpine:"
           docker images discord-bot:alpine --format "table {{.Repository}}:{{.Tag}}\t{{.Size}}"
+
+      - name: Upload Docker image as artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: discord-bot-alpine-image
+          path: /tmp/discord-bot-alpine.tar
+          retention-days: 30
+
+      - name: Upload to release
+        if: github.event_name == 'release'
+        uses: actions/upload-release-asset@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          upload_url: ${{ github.event.release.upload_url }}
+          asset_path: /tmp/discord-bot-alpine.tar
+          asset_name: discord-bot-alpine-${{ github.event.release.tag_name }}.tar
+          asset_content_type: application/x-tar
