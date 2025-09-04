@@ -14,6 +14,9 @@ RUN npm config set ignore-scripts true && \
     npm install --only=production && \
     npm cache clean --force
 
+# Install Prisma CLI for database operations
+RUN npm install -g prisma
+
 # Stage 2: Production runtime (Alpine)
 FROM node:18-alpine AS production
 
@@ -31,7 +34,35 @@ COPY --from=builder --chown=discordbot:nodejs /app/node_modules ./node_modules
 COPY --chown=discordbot:nodejs index.js ./
 COPY --chown=discordbot:nodejs commands/ ./commands/
 COPY --chown=discordbot:nodejs events/ ./events/
+COPY --chown=discordbot:nodejs utility/ ./utility/
+COPY --chown=discordbot:nodejs assets/ ./assets/
+COPY --chown=discordbot:nodejs prisma/ ./prisma/
+COPY --chown=discordbot:nodejs generated/ ./generated/
 COPY --chown=discordbot:nodejs package.json ./
+
+# Ensure database directory exists and set proper permissions
+RUN mkdir -p /app/prisma && \
+    chown -R discordbot:nodejs /app/prisma
+
+# Generate Prisma client and initialize database (run as root before switching user)
+RUN npx prisma generate --schema=./prisma/schema.prisma && \
+    chown -R discordbot:nodejs /app/generated
+
+# Create a startup script that handles database initialization (as root)
+RUN echo '#!/bin/sh' > /app/start.sh && \
+    echo 'echo "Starting Discord Bot..."' >> /app/start.sh && \
+    echo 'echo "Checking database..."' >> /app/start.sh && \
+    echo 'if [ ! -f "/app/prisma/dev.db" ]; then' >> /app/start.sh && \
+    echo '  echo "Database not found, running migrations..."' >> /app/start.sh && \
+    echo '  npx prisma migrate deploy --schema=/app/prisma/schema.prisma' >> /app/start.sh && \
+    echo 'else' >> /app/start.sh && \
+    echo '  echo "Database found, ensuring schema is up to date..."' >> /app/start.sh && \
+    echo '  npx prisma migrate deploy --schema=/app/prisma/schema.prisma' >> /app/start.sh && \
+    echo 'fi' >> /app/start.sh && \
+    echo 'echo "Starting bot application..."' >> /app/start.sh && \
+    echo 'exec node index.js' >> /app/start.sh && \
+    chmod +x /app/start.sh && \
+    chown discordbot:nodejs /app/start.sh
 
 # Switch to non-root user
 USER discordbot
@@ -43,5 +74,5 @@ USER discordbot
 HEALTHCHECK --interval=30s --timeout=3s --start-period=5s --retries=3 \
     CMD node -e "console.log('Bot is running')" || exit 1
 
-# Start the application
-CMD ["node", "index.js"]
+# Start the application with database initialization
+CMD ["/app/start.sh"]
