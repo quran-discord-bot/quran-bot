@@ -2,6 +2,16 @@
 
 All notable changes to this project will be documented in this file. See [standard-version](https://github.com/conventional-changelog/standard-version) for commit guidelines.
 
+## [1.4.0](https://github.com/runsdev/discord-bot/compare/v1.3.0...v1.4.0) (2025-09-04)
+
+
+### Features
+
+* **quiz:** added quran quiz ([f3c8410](https://github.com/runsdev/discord-bot/commit/f3c84105832733da3b69671133a553a6d13a233c))
+* **users:** added user scope command like register ([fc993d3](https://github.com/runsdev/discord-bot/commit/fc993d345c30e9f3cd9095b24ab1662ab765d79a))
+* **utilities:** add quiz, users model ([922116c](https://github.com/runsdev/discord-bot/commit/922116c0082c2d9bd97d7e8fbe7107b541bb0d1b))
+* **utilities:** add some quran utilities ([8dfae94](https://github.com/runsdev/discord-bot/commit/8dfae940ba619e46a388b6d42cd995653edb90a0))
+
 ## [1.3.0](https://github.com/runsdev/discord-bot/compare/v1.2.16...v1.3.0) (2025-09-04)
 
 
