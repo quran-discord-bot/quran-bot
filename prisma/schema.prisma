@@ -24,3 +24,72 @@ model QuranApiToken {
   @@map("quran_api_tokens")
 }
 
+model User {
+  id        String @id @default(uuid())
+  discordId String @unique
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  settings  UserSetting?
+  experience UserExperience?
+  streak    UserStreak?
+  quizStatsTypeOne QuranQuizTypeOneStats?
+  quizStatsTypeTwo QuranQuizTypeTwoStats?
+}
+
+model UserSetting {
+  id        Int      @id @default(autoincrement())
+  user      User     @relation(fields: [userId], references: [id])
+  userId    String   @unique
+  theme     String   @default("light")
+  language  String   @default("en")
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model UserExperience {
+  id        Int      @id @default(autoincrement())
+  user      User     @relation(fields: [userId], references: [id])
+  userId    String
+  experience Int     @default(0)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([userId])
+}
+
+model UserStreak {
+  id        Int      @id @default(autoincrement())
+  user      User     @relation(fields: [userId], references: [id])
+  userId    String   @unique
+  streak    Int      @default(0)
+  lastActive DateTime?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model QuranQuizTypeOneStats {
+  id        Int      @id @default(autoincrement())
+  user      User     @relation(fields: [userId], references: [id])
+  userId    String
+  attempts  Int      @default(0)
+  timeouts   Int      @default(0)
+  corrects   Int      @default(0)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([userId])
+}
+
+model QuranQuizTypeTwoStats {
+  id        Int      @id @default(autoincrement())
+  user      User     @relation(fields: [userId], references: [id])
+  userId    String
+  attempts  Int      @default(0)
+  timeouts   Int      @default(0)
+  corrects   Int      @default(0)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([userId])
+}
