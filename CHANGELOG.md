@@ -2,6 +2,13 @@
 
 All notable changes to this project will be documented in this file. See [standard-version](https://github.com/conventional-changelog/standard-version) for commit guidelines.
 
+### [1.4.2](https://github.com/runsdev/discord-bot/compare/v1.4.1...v1.4.2) (2025-09-04)
+
+
+### Features
+
+* repair prisma engine ([0c84521](https://github.com/runsdev/discord-bot/commit/0c8452199cf43e639b4225a816f95f5921b60679))
+
 ### [1.4.1](https://github.com/runsdev/discord-bot/compare/v1.4.0...v1.4.1) (2025-09-04)
 
 
