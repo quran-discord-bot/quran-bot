@@ -291,6 +291,373 @@ class QuranVerses {
   }
 
   /**
+   * Get a random verse from the Quran
+   * @param {Object} options - Query parameters for filtering and options
+   * @param {number} options.chapter_number - Return random verse only from specified chapter (1-114)
+   * @param {number} options.page_number - Return random verse only from specified page (1-604)
+   * @param {number} options.juz_number - Return random verse only from specified juz (1-30)
+   * @param {number} options.hizb_number - Return random verse only from specified hizb (1-60)
+   * @param {number} options.rub_el_hizb_number - Return random verse only from specified rub el hizb (1-240)
+   * @param {number} options.ruku_number - Return random verse only from specified ruku
+   * @param {number} options.manzil_number - Return random verse only from specified manzil (1-7)
+   * @param {string} options.language - Language for word translations (default: 'en')
+   * @param {boolean|string} options.words - Include words of each ayah (default: true)
+   * @param {string} options.translations - Comma separated translation IDs
+   * @param {number} options.audio - Recitation ID for audio
+   * @param {string} options.tafsirs - Comma separated tafsir IDs
+   * @param {string} options.word_fields - Word-level fields to include
+   * @param {string} options.translation_fields - Translation fields to include
+   * @param {string} options.fields - Verse-level fields to include
+   * @returns {Promise<Object>} Random verse object
+   */
+  async getRandomVerse(options = {}) {
+    const headers = await this.getHeaders();
+    const params = new URLSearchParams();
+
+    // Set default values
+    params.append("language", options.language || "en");
+    params.append(
+      "words",
+      options.words !== undefined ? options.words.toString() : "true"
+    );
+
+    // Add filtering parameters if provided
+    if (options.chapter_number) {
+      if (options.chapter_number < 1 || options.chapter_number > 114) {
+        throw new Error("Chapter number must be between 1 and 114");
+      }
+      params.append("chapter_number", options.chapter_number.toString());
+    }
+
+    if (options.page_number) {
+      if (options.page_number < 1 || options.page_number > 604) {
+        throw new Error("Page number must be between 1 and 604");
+      }
+      params.append("page_number", options.page_number.toString());
+    }
+
+    if (options.juz_number) {
+      if (options.juz_number < 1 || options.juz_number > 30) {
+        throw new Error("Juz number must be between 1 and 30");
+      }
+      params.append("juz_number", options.juz_number.toString());
+    }
+
+    if (options.hizb_number) {
+      if (options.hizb_number < 1 || options.hizb_number > 60) {
+        throw new Error("Hizb number must be between 1 and 60");
+      }
+      params.append("hizb_number", options.hizb_number.toString());
+    }
+
+    if (options.rub_el_hizb_number) {
+      if (options.rub_el_hizb_number < 1 || options.rub_el_hizb_number > 240) {
+        throw new Error("Rub el Hizb number must be between 1 and 240");
+      }
+      params.append(
+        "rub_el_hizb_number",
+        options.rub_el_hizb_number.toString()
+      );
+    }
+
+    if (options.ruku_number) {
+      if (options.ruku_number < 1) {
+        throw new Error("Ruku number must be greater than 0");
+      }
+      params.append("ruku_number", options.ruku_number.toString());
+    }
+
+    if (options.manzil_number) {
+      if (options.manzil_number < 1 || options.manzil_number > 7) {
+        throw new Error("Manzil number must be between 1 and 7");
+      }
+      params.append("manzil_number", options.manzil_number.toString());
+    }
+
+    // Add optional content parameters
+    if (options.translations) {
+      params.append("translations", options.translations);
+    }
+    if (options.audio) {
+      params.append("audio", options.audio.toString());
+    }
+    if (options.tafsirs) {
+      params.append("tafsirs", options.tafsirs);
+    }
+    if (options.word_fields) {
+      params.append("word_fields", options.word_fields);
+    }
+    if (options.translation_fields) {
+      params.append("translation_fields", options.translation_fields);
+    }
+
+    // Add verse fields - use comprehensive set if not specified
+    if (!options.fields) {
+      params.append(
+        "fields",
+        "text_uthmani,text_uthmani_simple,text_imlaei,text_imlaei_simple,text_indopak,text_uthmani_tajweed,chapter_id,verse_number,verse_key,juz_number,hizb_number,rub_el_hizb_number,ruku_number,manzil_number,sajdah_number,page_number,code_v1,code_v2,v1_page,v2_page"
+      );
+    } else {
+      params.append("fields", options.fields);
+    }
+
+    try {
+      // Try main API first
+      const response = await axios.get(`${this.baseURL}/verses/random`, {
+        params: Object.fromEntries(params),
+        headers: headers,
+        maxBodyLength: Infinity,
+      });
+
+      // Process the verse to add reconstructed Arabic text if needed
+      if (response.data.verse) {
+        const verse = response.data.verse;
+
+        // If Arabic text fields are missing but words are available, reconstruct them
+        if (!verse.text_uthmani && verse.words) {
+          verse.text_uthmani_reconstructed = this.reconstructArabicText(
+            verse.words
+          );
+        }
+
+        return verse;
+      }
+
+      return response.data.verse;
+    } catch (error) {
+      console.warn("Failed to get random verse from main API:", error.message);
+
+      // Try prelive endpoint as fallback
+      try {
+        const response = await axios.get(
+          `${this.preliveBaseURL}/verses/random`,
+          {
+            params: Object.fromEntries(params),
+            headers: headers,
+            maxBodyLength: Infinity,
+          }
+        );
+
+        // Process the verse to add reconstructed Arabic text if needed
+        if (response.data.verse) {
+          const verse = response.data.verse;
+
+          // If Arabic text fields are missing but words are available, reconstruct them
+          if (!verse.text_uthmani && verse.words) {
+            verse.text_uthmani_reconstructed = this.reconstructArabicText(
+              verse.words
+            );
+          }
+
+          return verse;
+        }
+
+        return response.data.verse;
+      } catch (preliveError) {
+        console.error(
+          "Failed to get random verse from prelive API:",
+          preliveError.message
+        );
+        throw new Error(
+          `Failed to fetch random verse: ${preliveError.message}`
+        );
+      }
+    }
+  }
+
+  /**
+   * Get a specific verse by its key (chapter:verse format)
+   * @param {string} verseKey - Verse key in format "chapter:verse" (e.g., "1:1", "10:5")
+   * @param {Object} options - Query parameters
+   * @param {string} options.language - Language for word translations (default: 'en')
+   * @param {boolean|string} options.words - Include words of each ayah (default: true)
+   * @param {string} options.translations - Comma separated translation IDs
+   * @param {number} options.audio - Recitation ID for audio
+   * @param {string} options.tafsirs - Comma separated tafsir IDs
+   * @param {string} options.word_fields - Word-level fields to include
+   * @param {string} options.translation_fields - Translation fields to include
+   * @param {string} options.fields - Verse-level fields to include
+   * @returns {Promise<Object>} Verse object with complete information
+   */
+  async getVerseByKey(verseKey, options = {}) {
+    // Validate verse key format
+    if (!verseKey || typeof verseKey !== "string") {
+      throw new Error("Verse key must be a non-empty string");
+    }
+
+    const keyPattern = /^\d+:\d+$/;
+    if (!keyPattern.test(verseKey)) {
+      throw new Error(
+        "Verse key must be in format 'chapter:verse' (e.g., '1:1', '10:5')"
+      );
+    }
+
+    // Parse and validate chapter and verse numbers
+    const [chapterStr, verseStr] = verseKey.split(":");
+    const chapterNumber = parseInt(chapterStr, 10);
+    const verseNumber = parseInt(verseStr, 10);
+
+    if (chapterNumber < 1 || chapterNumber > 114) {
+      throw new Error("Chapter number must be between 1 and 114");
+    }
+
+    if (verseNumber < 1) {
+      throw new Error("Verse number must be greater than 0");
+    }
+
+    const headers = await this.getHeaders();
+    const params = new URLSearchParams();
+
+    // Set default values
+    params.append("language", options.language || "en");
+    params.append(
+      "words",
+      options.words !== undefined ? options.words.toString() : "true"
+    );
+
+    // Add optional content parameters
+    if (options.translations) {
+      params.append("translations", options.translations);
+    }
+    if (options.audio) {
+      params.append("audio", options.audio.toString());
+    }
+    if (options.tafsirs) {
+      params.append("tafsirs", options.tafsirs);
+    }
+    if (options.word_fields) {
+      params.append("word_fields", options.word_fields);
+    }
+    if (options.translation_fields) {
+      params.append("translation_fields", options.translation_fields);
+    }
+
+    // Add verse fields - use comprehensive set if not specified
+    if (!options.fields) {
+      params.append(
+        "fields",
+        "text_uthmani,text_uthmani_simple,text_imlaei,text_imlaei_simple,text_indopak,text_uthmani_tajweed,chapter_id,verse_number,verse_key,juz_number,hizb_number,rub_el_hizb_number,ruku_number,manzil_number,sajdah_number,page_number,code_v1,code_v2,v1_page,v2_page"
+      );
+    } else {
+      params.append("fields", options.fields);
+    }
+
+    try {
+      // Try main API first
+      const response = await axios.get(
+        `${this.baseURL}/verses/by_key/${verseKey}`,
+        {
+          params: Object.fromEntries(params),
+          headers: headers,
+          maxBodyLength: Infinity,
+        }
+      );
+
+      // Process the verse to add reconstructed Arabic text if needed
+      if (response.data.verse) {
+        const verse = response.data.verse;
+
+        // If Arabic text fields are missing but words are available, reconstruct them
+        if (!verse.text_uthmani && verse.words) {
+          verse.text_uthmani_reconstructed = this.reconstructArabicText(
+            verse.words
+          );
+        }
+
+        return verse;
+      }
+
+      return response.data.verse;
+    } catch (error) {
+      console.warn(
+        `Failed to get verse ${verseKey} from main API:`,
+        error.message
+      );
+
+      // Try prelive endpoint as fallback
+      try {
+        const response = await axios.get(
+          `${this.preliveBaseURL}/verses/by_key/${verseKey}`,
+          {
+            params: Object.fromEntries(params),
+            headers: headers,
+            maxBodyLength: Infinity,
+          }
+        );
+
+        // Process the verse to add reconstructed Arabic text if needed
+        if (response.data.verse) {
+          const verse = response.data.verse;
+
+          // If Arabic text fields are missing but words are available, reconstruct them
+          if (!verse.text_uthmani && verse.words) {
+            verse.text_uthmani_reconstructed = this.reconstructArabicText(
+              verse.words
+            );
+          }
+
+          return verse;
+        }
+
+        return response.data.verse;
+      } catch (preliveError) {
+        console.error(
+          `Failed to get verse ${verseKey} from prelive API:`,
+          preliveError.message
+        );
+
+        // Handle specific HTTP errors
+        if (preliveError.response) {
+          switch (preliveError.response.status) {
+            case 404:
+              throw new Error(
+                `Verse ${verseKey} not found. Please check the chapter and verse numbers.`
+              );
+            case 400:
+              throw new Error(`Invalid verse key format: ${verseKey}`);
+            default:
+              throw new Error(
+                `Failed to fetch verse ${verseKey}: ${preliveError.message}`
+              );
+          }
+        }
+
+        throw new Error(
+          `Failed to fetch verse ${verseKey}: ${preliveError.message}`
+        );
+      }
+    }
+  }
+
+  /**
+   * Get verse by key with simplified parameters for common use cases
+   * @param {string} verseKey - Verse key in format "chapter:verse"
+   * @param {Object} options - Simplified options
+   * @param {boolean} options.includeTranslations - Include popular translations
+   * @param {boolean} options.includeAudio - Include audio URLs
+   * @param {string} options.language - Language for translations
+   * @returns {Promise<Object>} Verse object
+   */
+  async getVerseByKeySimple(verseKey, options = {}) {
+    const apiOptions = {
+      language: options.language || "en",
+      words: true,
+    };
+
+    // Add common translations if requested
+    if (options.includeTranslations) {
+      apiOptions.translations = "20,131"; // English: Sahih International, Urdu: Maududi
+    }
+
+    // Add audio if requested
+    if (options.includeAudio) {
+      apiOptions.audio = 7; // Mishary Rashid Alafasy
+    }
+
+    return this.getVerseByKey(verseKey, apiOptions);
+  }
+
+  /**
    * Clean up - close database connection
    */
   async disconnect() {

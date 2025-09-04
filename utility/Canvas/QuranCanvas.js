@@ -237,6 +237,239 @@ class QuranCanvas {
   }
 
   /**
+   * Create a canvas image with two Quran glyphs rendered vertically (top and bottom)
+   * @param {Object} options - Configuration options
+   * @param {Object} options.glyph1 - First glyph configuration (top)
+   * @param {string} options.glyph1.text - Arabic text/glyph to render for first verse
+   * @param {number|number[]} options.glyph1.pages - Page number(s) for font selection for first verse
+   * @param {number} options.glyph1.fontSize - Font size for first verse (optional, uses global default)
+   * @param {string} options.glyph1.fontColor - Text color for first verse (optional, uses global default)
+   * @param {Object} options.glyph2 - Second glyph configuration (bottom)
+   * @param {string} options.glyph2.text - Arabic text/glyph to render for second verse
+   * @param {number|number[]} options.glyph2.pages - Page number(s) for font selection for second verse
+   * @param {number} options.glyph2.fontSize - Font size for second verse (optional, uses global default)
+   * @param {string} options.glyph2.fontColor - Text color for second verse (optional, uses global default)
+   * @param {string} options.version - Font version ("v1" or "v2", default: "v2")
+   * @param {number} options.width - Canvas width (default: 800)
+   * @param {number} options.height - Canvas height (default: 1000)
+   * @param {number} options.fontSize - Default font size (default: 48)
+   * @param {string} options.fontColor - Default text color (default: "#000000")
+   * @param {string} options.colorScheme - Color scheme ("dark" or "light", default: "dark")
+   * @param {string} options.textAlign - Text alignment ("left", "center", "right", default: "right")
+   * @param {number} options.lineHeight - Line height multiplier (default: 1.5)
+   * @param {Object} options.padding - Padding {top, right, bottom, left} (default: {top: 80, right: 50, bottom: 50, left: 50})
+   * @param {number} options.dividerWidth - Width of horizontal divider between glyphs (default: 2)
+   * @param {string} options.dividerColor - Color of divider (default: "#666666")
+   * @param {boolean} options.showLabels - Show "First Verse" and "Second Verse" labels (default: true)
+   * @param {number} options.labelFontSize - Font size for labels (default: 24)
+   * @param {string} options.labelFont - Font family for labels (default: "Arial")
+   * @returns {Buffer} PNG image buffer
+   */
+  createDualQuranImage(options) {
+    const {
+      glyph1,
+      glyph2,
+      version = "v2",
+      width = 800,
+      height = 1000,
+      fontSize = 48,
+      fontColor = "#000000",
+      colorScheme = "dark",
+      textAlign = "right",
+      lineHeight = 1.5,
+      padding = { top: 80, right: 50, bottom: 50, left: 50 },
+      dividerWidth = 2,
+      dividerColor = "#666666",
+      showLabels = true,
+      labelFontSize = 24,
+      labelFont = "Arial",
+    } = options;
+
+    // Validate required parameters
+    if (!glyph1 || !glyph1.text || !glyph1.pages) {
+      throw new Error("First glyph text and pages are required");
+    }
+    if (!glyph2 || !glyph2.text || !glyph2.pages) {
+      throw new Error("Second glyph text and pages are required");
+    }
+
+    // Validate version
+    if (!["v2"].includes(version)) {
+      throw new Error("Version must be 'v1' or 'v2'");
+    }
+
+    // Calculate dimensions for each glyph area (vertical layout)
+    const totalContentWidth = width - padding.left - padding.right;
+    const totalContentHeight = height - padding.top - padding.bottom;
+    const glyphWidth = totalContentWidth;
+    const glyphHeight = (totalContentHeight - dividerWidth) / 2;
+
+    // Register fonts for both glyphs
+    const glyph1PageArray = Array.isArray(glyph1.pages)
+      ? glyph1.pages
+      : [glyph1.pages];
+    const glyph2PageArray = Array.isArray(glyph2.pages)
+      ? glyph2.pages
+      : [glyph2.pages];
+
+    // Validate page numbers
+    [...glyph1PageArray, ...glyph2PageArray].forEach((page) => {
+      if (!Number.isInteger(page) || page < 1 || page > 604) {
+        throw new Error(
+          `Invalid page number: ${page}. Must be between 1 and 604.`
+        );
+      }
+    });
+
+    const glyph1FontFamilies = glyph1PageArray.map((page) =>
+      this.registerPageFont(page, version)
+    );
+    const glyph2FontFamilies = glyph2PageArray.map((page) =>
+      this.registerPageFont(page, version)
+    );
+
+    // Create canvas
+    const canvas = createCanvas(width, height);
+    const ctx = canvas.getContext("2d");
+
+    // Fill background
+    ctx.fillStyle = colorScheme === "dark" ? "#1a1a1a" : "#ffffff";
+    ctx.fillRect(0, 0, width, height);
+
+    // Configure text rendering
+    const textColor = colorScheme === "dark" ? "#ffffff" : "#000000";
+    ctx.textBaseline = "top";
+
+    // Draw labels if enabled
+    let labelOffset = 0;
+    if (showLabels) {
+      labelOffset = labelFontSize + 15;
+      ctx.fillStyle = textColor;
+      ctx.font = `${labelFontSize}px ${labelFont}`;
+      ctx.textAlign = "center";
+
+      // First verse label (top area)
+      const glyph1CenterX = padding.left + glyphWidth / 2;
+      ctx.fillText("First Verse", glyph1CenterX, padding.top);
+
+      // Second verse label (bottom area)
+      const glyph2Y = padding.top + glyphHeight + dividerWidth + labelOffset;
+      ctx.fillText("Second Verse", glyph1CenterX, glyph2Y);
+    }
+
+    // Render first glyph (top area)
+    this.renderGlyphInArea(ctx, {
+      text: glyph1.text,
+      fontFamilies: glyph1FontFamilies,
+      fontSize: glyph1.fontSize || fontSize,
+      fontColor: glyph1.fontColor || fontColor,
+      colorScheme,
+      textAlign,
+      lineHeight,
+      x: padding.left,
+      y: padding.top + labelOffset,
+      width: glyphWidth,
+      height: glyphHeight - labelOffset,
+    });
+
+    // Render second glyph (bottom area)
+    this.renderGlyphInArea(ctx, {
+      text: glyph2.text,
+      fontFamilies: glyph2FontFamilies,
+      fontSize: glyph2.fontSize || fontSize,
+      fontColor: glyph2.fontColor || fontColor,
+      colorScheme,
+      textAlign,
+      lineHeight,
+      x: padding.left,
+      y: padding.top + glyphHeight + dividerWidth + labelOffset,
+      width: glyphWidth,
+      height: glyphHeight - labelOffset,
+    });
+
+    // Draw horizontal divider line between top and bottom glyphs
+    ctx.fillStyle = dividerColor;
+    const dividerY = padding.top + glyphHeight + dividerWidth / 2 + labelOffset;
+    ctx.fillRect(
+      padding.left,
+      dividerY - dividerWidth / 2,
+      glyphWidth,
+      dividerWidth
+    );
+
+    // Return image buffer
+    return canvas.toBuffer("image/png");
+  }
+
+  /**
+   * Helper method to render a glyph within a specific area
+   * @param {CanvasRenderingContext2D} ctx - Canvas context
+   * @param {Object} options - Rendering options
+   */
+  renderGlyphInArea(ctx, options) {
+    const {
+      text,
+      fontFamilies,
+      fontSize,
+      fontColor,
+      colorScheme,
+      textAlign,
+      lineHeight,
+      x,
+      y,
+      width,
+      height,
+    } = options;
+
+    // Save context state
+    ctx.save();
+
+    // Set text color
+    ctx.fillStyle = colorScheme === "dark" ? "#ffffff" : "#000000";
+    ctx.textAlign = textAlign;
+
+    // Wrap text to fit within the area
+    const lines = this.wrapText(ctx, text, fontFamilies[0], fontSize, width);
+
+    // Calculate total text height
+    const totalTextHeight = lines.length * fontSize * lineHeight;
+
+    // Center text vertically in the available area
+    const startY = y + (height - totalTextHeight) / 2;
+
+    // Render each line
+    lines.forEach((line, index) => {
+      const fontFamily = fontFamilies[index % fontFamilies.length];
+      ctx.font = `${fontSize}px ${fontFamily}`;
+
+      let textX;
+      switch (textAlign) {
+        case "center":
+          textX = x + width / 2;
+          break;
+        case "right":
+          textX = x + width - 20; // Small margin from right edge
+          break;
+        default: // left
+          textX = x + 20; // Small margin from left edge
+      }
+
+      const textY = startY + index * fontSize * lineHeight;
+
+      // Render the text
+      ctx.fillText(line, textX, textY);
+
+      // Optional: Add text stroke for better visibility
+      ctx.strokeStyle = fontColor;
+      ctx.lineWidth = 0.5;
+      ctx.strokeText(line, textX, textY);
+    });
+
+    // Restore context state
+    ctx.restore();
+  }
+
+  /**
    * Save Quran image to file
    * @param {Object} options - Same options as createQuranImage
    * @param {string} outputPath - Output file path
@@ -245,6 +478,17 @@ class QuranCanvas {
     const buffer = this.createQuranImage(options);
     writeFileSync(outputPath, buffer);
     console.log(`Quran image saved to: ${outputPath}`);
+  }
+
+  /**
+   * Save dual Quran image to file
+   * @param {Object} options - Same options as createDualQuranImage
+   * @param {string} outputPath - Output file path
+   */
+  saveDualQuranImage(options, outputPath) {
+    const buffer = this.createDualQuranImage(options);
+    writeFileSync(outputPath, buffer);
+    console.log(`Dual Quran image saved to: ${outputPath}`);
   }
 
   /**
