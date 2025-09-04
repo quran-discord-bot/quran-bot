@@ -2,8 +2,8 @@
 # Multi-stage build for optimized image size
 FROM node:18-alpine AS dependencies
 
-# Install system dependencies for canvas and native modules
-RUN apk add --no-cache python3 make g++
+# Install system dependencies for canvas, native modules, and OpenSSL
+RUN apk add --no-cache python3 make g++ openssl openssl-dev
 
 WORKDIR /app
 
@@ -22,8 +22,8 @@ FROM node:18-alpine AS production
 
 WORKDIR /app
 
-# Install runtime dependencies for canvas
-RUN apk add --no-cache python3
+# Install runtime dependencies for canvas and OpenSSL
+RUN apk add --no-cache python3 openssl openssl-dev
 
 # Copy dependencies from build stage
 COPY --from=dependencies /app/node_modules ./node_modules
@@ -33,7 +33,7 @@ COPY . .
 
 # Set environment variables
 ENV NODE_ENV=production
-ENV DATABASE_URL="file:./dev.db"
+ENV DATABASE_URL="file:./prod.db"
 
 # Create directories and set permissions
 RUN mkdir -p generated/prisma prisma && \
@@ -42,20 +42,28 @@ RUN mkdir -p generated/prisma prisma && \
 # Generate Prisma client with correct binary target for Alpine
 RUN npx prisma generate
 
-# Create database initialization script
+# Create database initialization script with better error handling
 RUN echo '#!/bin/sh' > docker-entrypoint.sh && \
     echo 'set -e' >> docker-entrypoint.sh && \
     echo '' >> docker-entrypoint.sh && \
+    echo '# Set OpenSSL configuration for Prisma' >> docker-entrypoint.sh && \
+    echo 'export OPENSSL_CONF=/etc/ssl/openssl.cnf' >> docker-entrypoint.sh && \
+    echo 'export PRISMA_QUERY_ENGINE_BINARY=/app/node_modules/prisma/query-engine-linux-musl' >> docker-entrypoint.sh && \
+    echo '' >> docker-entrypoint.sh && \
     echo '# Initialize database if needed' >> docker-entrypoint.sh && \
     echo 'echo "🔄 Checking database..."' >> docker-entrypoint.sh && \
-    echo 'if [ ! -f "prisma/dev.db" ]; then' >> docker-entrypoint.sh && \
-    echo '  echo "📦 Database not found, creating and pushing schema..."' >> docker-entrypoint.sh && \
-    echo '  npx prisma db push' >> docker-entrypoint.sh && \
-    echo '  npx prisma migrate deploy || echo "⚠️  Migration deploy failed, continuing..."' >> docker-entrypoint.sh && \
+    echo 'if [ ! -f "prisma/prod.db" ]; then' >> docker-entrypoint.sh && \
+    echo '  echo "📦 Database not found, creating database and applying schema..."' >> docker-entrypoint.sh && \
+    echo '  npx prisma db push --force-reset || {' >> docker-entrypoint.sh && \
+    echo '    echo "❌ Schema push failed, trying alternative approach..."' >> docker-entrypoint.sh && \
+    echo '    npx prisma migrate reset --force || echo "⚠️ Migration reset failed"' >> docker-entrypoint.sh && \
+    echo '  }' >> docker-entrypoint.sh && \
     echo 'else' >> docker-entrypoint.sh && \
     echo '  echo "✅ Database exists, ensuring schema is current..."' >> docker-entrypoint.sh && \
-    echo '  npx prisma db push || echo "⚠️  Schema push failed, trying migrations..."' >> docker-entrypoint.sh && \
-    echo '  npx prisma migrate deploy || echo "⚠️  Migration failed, continuing..."' >> docker-entrypoint.sh && \
+    echo '  npx prisma db push || {' >> docker-entrypoint.sh && \
+    echo '    echo "⚠️ Schema push failed, trying migrations..."' >> docker-entrypoint.sh && \
+    echo '    npx prisma migrate deploy || echo "⚠️ Migration failed, continuing..."' >> docker-entrypoint.sh && \
+    echo '  }' >> docker-entrypoint.sh && \
     echo 'fi' >> docker-entrypoint.sh && \
     echo '' >> docker-entrypoint.sh && \
     echo '# Start the Discord bot' >> docker-entrypoint.sh && \
