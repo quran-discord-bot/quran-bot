@@ -36,6 +36,7 @@ model User {
   streak    UserStreak?
   quizStatsTypeOne QuranQuizTypeOneStats?
   quizStatsTypeTwo QuranQuizTypeTwoStats?
+  quizStatsTypeThree QuranQuizTypeThreeStats?
 }
 
 model UserSetting {
@@ -74,6 +75,8 @@ model QuranQuizTypeOneStats {
   user      User     @relation(fields: [userId], references: [id])
   userId    String
   attempts  Int      @default(0)
+  attemptsToday Int      @default(0)
+  streaks    Int      @default(0)
   timeouts   Int      @default(0)
   corrects   Int      @default(0)
   createdAt DateTime @default(now())
@@ -87,6 +90,23 @@ model QuranQuizTypeTwoStats {
   user      User     @relation(fields: [userId], references: [id])
   userId    String
   attempts  Int      @default(0)
+  attemptsToday Int      @default(0)
+  streaks    Int      @default(0)
+  timeouts   Int      @default(0)
+  corrects   Int      @default(0)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([userId])
+}
+
+model QuranQuizTypeThreeStats {
+  id        Int      @id @default(autoincrement())
+  user      User     @relation(fields: [userId], references: [id])
+  userId    String
+  attempts  Int      @default(0)
+  attemptsToday Int      @default(0)
+  streaks    Int      @default(0)
   timeouts   Int      @default(0)
   corrects   Int      @default(0)
   createdAt DateTime @default(now())

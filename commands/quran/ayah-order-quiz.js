@@ -37,6 +37,7 @@ export async function execute(interaction) {
       include: {
         experience: true,
         settings: true,
+        quizStatsTypeTwo: true,
       },
     });
 
@@ -154,12 +155,19 @@ export async function execute(interaction) {
         },
         {
           name: "🏆 Rewards",
-          value: "✅ Correct: +10 XP\n❌ Wrong: -10 XP",
+          value: "✅ Correct: +10 XP\n❌ Wrong: -10 XP\n⏰ Timeout: -1 XP",
           inline: true,
         },
         {
           name: "📚 Chapter Info",
           value: `${chapterData.verses_count} verses • Revealed in ${chapterData.revelation_place}`,
+          inline: true,
+        },
+        {
+          name: "📊 Today's Progress",
+          value: `${attemptsToday} attempts\n${
+            currentStats?.streaks || 0
+          } streak`,
           inline: true,
         }
       )
@@ -192,17 +200,19 @@ export async function execute(interaction) {
 
       // Update user experience
       let xpChange = 0;
-      let newLevel = user.experience?.level || 1;
+      let newLevel = Math.floor((user.experience?.experience || 0) / 100) + 1;
       let newXP = user.experience?.experience || 0;
+      let newStreak = currentStats?.streaks || 0;
 
       if (isCorrect) {
         xpChange = 10;
         newXP += 10;
-        // Simple level calculation (every 100 XP = 1 level)
+        newStreak += 1;
         newLevel = Math.floor(newXP / 100) + 1;
       } else {
         xpChange = -10;
-        newXP = Math.max(0, newXP - 10); // Don't go below 0
+        newXP = Math.max(0, newXP - 10);
+        newStreak = 0; // Reset streak on wrong answer
         newLevel = Math.floor(newXP / 100) + 1;
       }
 
@@ -223,11 +233,15 @@ export async function execute(interaction) {
         where: { userId: user.id },
         update: {
           attempts: { increment: 1 },
+          attemptsToday: { increment: 1 },
+          streaks: newStreak,
           corrects: isCorrect ? { increment: 1 } : undefined,
         },
         create: {
           userId: user.id,
           attempts: 1,
+          attemptsToday: 1,
+          streaks: isCorrect ? 1 : 0,
           corrects: isCorrect ? 1 : 0,
           timeouts: 0,
         },
@@ -264,10 +278,15 @@ export async function execute(interaction) {
             inline: false,
           },
           {
-            name: "💫 XP Update",
+            name: "💫 Stats Update",
             value:
               `${xpChange > 0 ? "+" : ""}${xpChange} XP\n` +
-              `Total: ${newXP} XP (Level ${newLevel})`,
+              `Total: ${newXP} XP (Level ${newLevel})\n🔥 Streak: ${newStreak}`,
+            inline: true,
+          },
+          {
+            name: "📊 Today's Progress",
+            value: `${attemptsToday + 1} attempts`,
             inline: true,
           }
         )
@@ -318,18 +337,42 @@ export async function execute(interaction) {
 
     collector.on("end", async (collected) => {
       if (collected.size === 0) {
-        // Timeout - no answer given, update timeout stats
+        // Timeout - apply XP penalty and update stats
+        const timeoutXpPenalty = -1;
+        const newXP = Math.max(
+          0,
+          (user.experience?.experience || 0) + timeoutXpPenalty
+        );
+        const newLevel = Math.floor(newXP / 100) + 1;
+
+        // Update user experience with timeout penalty
+        await prisma.userExperience.upsert({
+          where: { userId: user.id },
+          update: {
+            experience: newXP,
+          },
+          create: {
+            userId: user.id,
+            experience: newXP,
+          },
+        });
+
+        // Update timeout stats
         await prisma.quranQuizTypeTwoStats.upsert({
           where: { userId: user.id },
           update: {
             attempts: { increment: 1 },
+            attemptsToday: { increment: 1 },
             timeouts: { increment: 1 },
+            streaks: 0, // Reset streak on timeout
           },
           create: {
             userId: user.id,
             attempts: 1,
+            attemptsToday: 1,
             corrects: 0,
             timeouts: 1,
+            streaks: 0,
           },
         });
 
@@ -352,6 +395,11 @@ export async function execute(interaction) {
                   isFirstBeforeSecond ? "**comes before**" : "**comes after**"
                 } the second verse.`,
               inline: false,
+            },
+            {
+              name: "💫 XP Penalty",
+              value: `${timeoutXpPenalty} XP\nTotal: ${newXP} XP (Level ${newLevel})`,
+              inline: true,
             },
             {
               name: "💡 Try Again",

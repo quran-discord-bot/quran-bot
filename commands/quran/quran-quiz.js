@@ -6,6 +6,7 @@ import {
   ActionRowBuilder,
   ButtonBuilder,
   ButtonStyle,
+  StringSelectMenuBuilder,
   AttachmentBuilder,
   ComponentType,
 } from "discord.js";
@@ -28,7 +29,12 @@ export async function execute(interaction) {
   const canvas = new QuranCanvas();
 
   try {
-    await interaction.deferReply();
+    // Check if interaction is already acknowledged
+    if (interaction.replied || interaction.deferred) {
+      console.log("Interaction already acknowledged, skipping defer");
+    } else {
+      await interaction.deferReply();
+    }
 
     const userId = interaction.user.id;
 
@@ -38,6 +44,7 @@ export async function execute(interaction) {
       include: {
         experience: true,
         settings: true,
+        quizStatsTypeOne: true,
       },
     });
 
@@ -65,9 +72,27 @@ export async function execute(interaction) {
         .setFooter({ text: "Registration is quick and free!" })
         .setTimestamp();
 
-      await interaction.editReply({ embeds: [embed] });
+      await safeEditReply(interaction, { embeds: [embed] });
       return;
     }
+
+    // Check and reset daily attempts if it's a new day
+    const today = new Date().toDateString();
+    const lastUpdate = user.quizStatsTypeOne?.updatedAt?.toDateString();
+    const isNewDay = today !== lastUpdate;
+
+    if (isNewDay && user.quizStatsTypeOne) {
+      await prisma.quranQuizTypeOneStats.update({
+        where: { userId: user.id },
+        data: { attemptsToday: 0 },
+      });
+    }
+
+    // Get current daily attempts
+    const currentStats = await prisma.quranQuizTypeOneStats.findUnique({
+      where: { userId: user.id },
+    });
+    const attemptsToday = isNewDay ? 0 : currentStats?.attemptsToday || 0;
 
     // Get random verse from any chapter
     const verse = await quranVerses.getRandomVerse();
@@ -86,14 +111,6 @@ export async function execute(interaction) {
     );
     const correctChapterName = getChapterName(correctChapterId);
 
-    // Generate wrong answers
-    const wrongAnswers = await generateWrongAnswers(correctChapterId);
-
-    // Create answer choices (1 correct + 4 wrong)
-    const allChoices = [correctChapterName, ...wrongAnswers];
-    const shuffledChoices = shuffleArray(allChoices);
-    const correctIndex = shuffledChoices.indexOf(correctChapterName);
-
     // Create verse image
     const imgAttachment = canvas.createQuranImage({
       glyph: verse.code_v2.slice(0, -1),
@@ -105,78 +122,201 @@ export async function execute(interaction) {
       name: "quiz-verse.png",
     });
 
-    // Create buttons for choices
-    const buttons = shuffledChoices.map((choice, index) =>
-      new ButtonBuilder()
-        .setCustomId(`quiz_answer_${index}`)
-        .setLabel(`${String.fromCharCode(65 + index)}. ${choice}`) // A, B, C, D, E
-        .setStyle(ButtonStyle.Primary)
-    );
+    let components;
+    let embed;
+    let shuffledChoices = []; // Store shuffled choices for consistency
 
-    const actionRow = new ActionRowBuilder().addComponents(buttons);
+    // Check if user has more than 5 attempts today - use select menu for increased difficulty
+    if (attemptsToday >= 5) {
+      // Generate 25 adjacent chapter options for select menu centered around correct answer
+      const allChapterNames = getAllChapterNames();
+      const totalChapters = allChapterNames.length;
 
-    // Create quiz embed
-    const embed = new EmbedBuilder()
-      .setTitle("🧩 Quran Quiz Challenge")
-      .setDescription(
-        "**Which chapter (surah) is this verse from?**\n*Look at the Arabic text and choose the correct answer below.*"
-      )
-      .setColor(0x4dabf7)
-      .addFields(
-        {
-          name: "🎯 Instructions",
-          value:
-            "Click the button with the correct chapter name. You have 30 seconds to answer!",
-          inline: false,
-        },
-        {
-          name: "🏆 Rewards",
-          value: "✅ Correct: +10 XP\n❌ Wrong: -2 XP",
-          inline: true,
-        }
-      )
-      .setImage("attachment://quiz-verse.png")
-      .setFooter({
-        text: `Level ${user.experience?.level || 1} • ${
-          user.experience?.experience || 0
-        } XP`,
-        iconURL: interaction.user.displayAvatarURL(),
-      })
-      .setTimestamp();
+      // Calculate range to show 25 chapters with correct answer somewhere in the middle
+      let startIndex, endIndex;
+      const rangeSize = 25;
+      const correctIndex = correctChapterId - 1; // Convert to 0-based index
 
-    const quizMessage = await interaction.editReply({
+      // Try to center the correct answer, but adjust if we're near the edges
+      let idealStart = correctIndex - Math.floor(rangeSize / 2);
+
+      if (idealStart < 0) {
+        startIndex = 0;
+        endIndex = Math.min(rangeSize, totalChapters);
+      } else if (idealStart + rangeSize > totalChapters) {
+        endIndex = totalChapters;
+        startIndex = Math.max(0, totalChapters - rangeSize);
+      } else {
+        startIndex = idealStart;
+        endIndex = idealStart + rangeSize;
+      }
+
+      // Create options for the selected range
+      const selectedChapters = allChapterNames.slice(startIndex, endIndex);
+      const options = selectedChapters.map((name, index) => ({
+        label: `${startIndex + index + 1}. ${name}`,
+        value: (startIndex + index + 1).toString(), // Convert back to 1-based chapter ID
+        description: `Chapter ${startIndex + index + 1}`,
+      }));
+
+      const selectMenu = new StringSelectMenuBuilder()
+        .setCustomId("quiz_select_answer")
+        .setPlaceholder("Select the correct chapter...")
+        .addOptions(options);
+
+      components = [new ActionRowBuilder().addComponents(selectMenu)];
+
+      embed = new EmbedBuilder()
+        .setTitle("🧩 Advanced Quran Quiz Challenge")
+        .setDescription(
+          "**Which chapter (surah) is this verse from?**\n*Select from the chapters below. You have 45 seconds to answer!*"
+        )
+        .setColor(0xff9500)
+        .addFields(
+          {
+            name: "🔥 Advanced Mode",
+            value: `You've completed ${attemptsToday} attempts today! Choose from ${selectedChapters.length} adjacent chapters.`,
+            inline: false,
+          },
+          {
+            name: "🏆 Rewards",
+            value: "✅ Correct: +15 XP\n❌ Wrong: -7 XP",
+            inline: true,
+          },
+          {
+            name: "🔥 Current Streak",
+            value: `${currentStats?.streaks || 0} correct in a row`,
+            inline: true,
+          },
+          {
+            name: "📖 Chapter Range",
+            value: `Chapters ${startIndex + 1} - ${endIndex}`,
+            inline: true,
+          }
+        )
+        .setImage("attachment://quiz-verse.png")
+        .setFooter({
+          text: `Level ${Math.floor(
+            (user.experience?.experience || 0) / 100
+          )} • ${user.experience?.experience || 0} XP`,
+          iconURL: interaction.user.displayAvatarURL(),
+        })
+        .setTimestamp();
+    } else {
+      // Generate wrong answers for button mode
+      const wrongAnswers = await generateWrongAnswers(correctChapterId);
+
+      // Create answer choices (1 correct + 4 wrong)
+      const allChoices = [correctChapterName, ...wrongAnswers];
+      shuffledChoices = shuffleArray(allChoices); // Store the shuffled choices
+
+      // Create buttons for choices
+      const buttons = shuffledChoices.map((choice, index) =>
+        new ButtonBuilder()
+          .setCustomId(`quiz_answer_${index}`)
+          .setLabel(`${String.fromCharCode(65 + index)}. ${choice}`) // A, B, C, D, E
+          .setStyle(ButtonStyle.Primary)
+      );
+
+      components = [new ActionRowBuilder().addComponents(buttons)];
+
+      embed = new EmbedBuilder()
+        .setTitle("🧩 Quran Quiz Challenge")
+        .setDescription(
+          "**Which chapter (surah) is this verse from?**\n*Look at the Arabic text and choose the correct answer below.*"
+        )
+        .setColor(0x4dabf7)
+        .addFields(
+          {
+            name: "🎯 Instructions",
+            value:
+              "Click the button with the correct chapter name. You have 30 seconds to answer!",
+            inline: false,
+          },
+          {
+            name: "🏆 Rewards",
+            value: "✅ Correct: +10 XP\n❌ Wrong: -2 XP",
+            inline: true,
+          },
+          {
+            name: "📊 Today's Progress",
+            value: `${attemptsToday}/5 attempts\n${
+              currentStats?.streaks || 0
+            } streak`,
+            inline: true,
+          }
+        )
+        .setImage("attachment://quiz-verse.png")
+        .setFooter({
+          text: `Level ${Math.floor(
+            (user.experience?.experience || 0) / 100
+          )} • ${user.experience?.experience || 0} XP`,
+          iconURL: interaction.user.displayAvatarURL(),
+        })
+        .setTimestamp();
+    }
+
+    const quizMessage = await safeEditReply(interaction, {
       embeds: [embed],
-      components: [actionRow],
+      components,
       files: [attachment],
     });
 
-    // Create collector for button interactions
+    if (!quizMessage) {
+      console.error("Failed to send quiz message");
+      return;
+    }
+
+    // Create collector for interactions
+    const timeLimit = attemptsToday >= 5 ? 45000 : 30000; // 45s for advanced, 30s for normal
     const collector = quizMessage.createMessageComponentCollector({
-      componentType: ComponentType.Button,
-      time: 30000, // 30 seconds
+      componentType:
+        attemptsToday >= 5 ? ComponentType.StringSelect : ComponentType.Button,
+      time: timeLimit,
       filter: (i) => i.user.id === userId,
     });
 
-    collector.on("collect", async (buttonInteraction) => {
-      await buttonInteraction.deferUpdate();
+    collector.on("collect", async (componentInteraction) => {
+      try {
+        await componentInteraction.deferUpdate();
+      } catch (error) {
+        console.error("Error deferring component interaction:", error.message);
+        return;
+      }
 
-      const selectedIndex = parseInt(buttonInteraction.customId.split("_")[2]);
-      const isCorrect = selectedIndex === correctIndex;
-      const selectedAnswer = shuffledChoices[selectedIndex];
+      let isCorrect = false;
+      let selectedAnswer = "";
+      let correctIndex = -1;
+      let selectedIndex = -1;
 
-      // Update user experience
+      if (attemptsToday >= 5) {
+        // Select menu mode
+        const selectedChapterId = parseInt(componentInteraction.values[0]);
+        isCorrect = selectedChapterId === correctChapterId;
+        selectedAnswer = getChapterName(selectedChapterId);
+      } else {
+        // Button mode - use the stored shuffled choices
+        selectedIndex = parseInt(componentInteraction.customId.split("_")[2]);
+        correctIndex = shuffledChoices.indexOf(correctChapterName);
+        selectedAnswer = shuffledChoices[selectedIndex];
+        isCorrect = selectedAnswer === correctChapterName;
+      }
+
+      // Calculate XP and streak changes
       let xpChange = 0;
-      let newLevel = user.experience?.level || 1;
+      let newLevel = Math.floor((user.experience?.experience || 0) / 100) + 1;
       let newXP = user.experience?.experience || 0;
+      let newStreak = currentStats?.streaks || 0;
 
       if (isCorrect) {
-        xpChange = 10;
-        newXP += 10;
-        // Simple level calculation (every 100 XP = 1 level)
+        xpChange = attemptsToday >= 5 ? 15 : 10; // More XP for advanced mode
+        newXP += xpChange;
+        newStreak += 1;
         newLevel = Math.floor(newXP / 100) + 1;
       } else {
-        xpChange = -2;
-        newXP = Math.max(0, newXP - 2); // Don't go below 0
+        xpChange = attemptsToday >= 5 ? -7 : -2; // More penalty for advanced mode
+        newXP = Math.max(0, newXP + xpChange);
+        newStreak = 0; // Reset streak on wrong answer
         newLevel = Math.floor(newXP / 100) + 1;
       }
 
@@ -197,11 +337,15 @@ export async function execute(interaction) {
         where: { userId: user.id },
         update: {
           attempts: { increment: 1 },
+          attemptsToday: { increment: 1 },
+          streaks: newStreak,
           corrects: isCorrect ? { increment: 1 } : undefined,
         },
         create: {
           userId: user.id,
           attempts: 1,
+          attemptsToday: 1,
+          streaks: isCorrect ? 1 : 0,
           corrects: isCorrect ? 1 : 0,
           timeouts: 0,
         },
@@ -228,10 +372,17 @@ export async function execute(interaction) {
             inline: true,
           },
           {
-            name: "💫 XP Update",
+            name: "💫 Stats Update",
             value: `${
               xpChange > 0 ? "+" : ""
-            }${xpChange} XP\nTotal: ${newXP} XP (Level ${newLevel})`,
+            }${xpChange} XP\nTotal: ${newXP} XP (Level ${newLevel})\n🔥 Streak: ${newStreak}`,
+            inline: true,
+          },
+          {
+            name: "📊 Today's Progress",
+            value: `${attemptsToday + 1} attempts${
+              attemptsToday + 1 === 5 ? "\n🚀 Advanced mode unlocked!" : ""
+            }`,
             inline: true,
           }
         )
@@ -240,25 +391,54 @@ export async function execute(interaction) {
         })
         .setTimestamp();
 
-      // Disable all buttons
-      const disabledButtons = buttons.map((button, index) => {
-        const newButton = ButtonBuilder.from(button);
-        if (index === correctIndex) {
-          newButton.setStyle(ButtonStyle.Success);
-        } else if (index === selectedIndex && !isCorrect) {
-          newButton.setStyle(ButtonStyle.Danger);
-        } else {
-          newButton.setStyle(ButtonStyle.Secondary);
-        }
-        newButton.setDisabled(true);
-        return newButton;
-      });
+      // Handle components based on mode
+      let disabledComponents = [];
 
-      const disabledRow = new ActionRowBuilder().addComponents(disabledButtons);
+      if (attemptsToday >= 5) {
+        // Select menu mode - disable the select menu
+        const disabledSelectMenu = StringSelectMenuBuilder.from(
+          components[0].components[0]
+        )
+          .setDisabled(true)
+          .setPlaceholder(
+            isCorrect
+              ? "✅ Correct answer selected!"
+              : "❌ Incorrect answer selected"
+          );
+
+        disabledComponents = [
+          new ActionRowBuilder().addComponents(disabledSelectMenu),
+        ];
+      } else {
+        // Button mode - disable and color the buttons using stored shuffled choices
+        const buttons = shuffledChoices.map((choice, index) =>
+          new ButtonBuilder()
+            .setCustomId(`quiz_answer_${index}`)
+            .setLabel(`${String.fromCharCode(65 + index)}. ${choice}`)
+            .setStyle(ButtonStyle.Primary)
+        );
+
+        const disabledButtons = buttons.map((button, index) => {
+          const newButton = ButtonBuilder.from(button);
+          if (index === correctIndex) {
+            newButton.setStyle(ButtonStyle.Success);
+          } else if (index === selectedIndex && !isCorrect) {
+            newButton.setStyle(ButtonStyle.Danger);
+          } else {
+            newButton.setStyle(ButtonStyle.Secondary);
+          }
+          newButton.setDisabled(true);
+          return newButton;
+        });
+
+        disabledComponents = [
+          new ActionRowBuilder().addComponents(disabledButtons),
+        ];
+      }
 
       await interaction.editReply({
         embeds: [resultEmbed],
-        components: [disabledRow],
+        components: disabledComponents,
         files: [attachment],
       });
 
@@ -267,18 +447,41 @@ export async function execute(interaction) {
 
     collector.on("end", async (collected) => {
       if (collected.size === 0) {
-        // Timeout - no answer given, update timeout stats
+        // Timeout - update timeout stats and apply XP penalty
+        const timeoutXpPenalty = attemptsToday >= 5 ? -3 : -1;
+        const newXP = Math.max(
+          0,
+          (user.experience?.experience || 0) + timeoutXpPenalty
+        );
+        const newLevel = Math.floor(newXP / 100) + 1;
+
+        // Update user experience with timeout penalty
+        await prisma.userExperience.upsert({
+          where: { userId: user.id },
+          update: {
+            experience: newXP,
+          },
+          create: {
+            userId: user.id,
+            experience: newXP,
+          },
+        });
+
         await prisma.quranQuizTypeOneStats.upsert({
           where: { userId: user.id },
           update: {
             attempts: { increment: 1 },
+            attemptsToday: { increment: 1 },
             timeouts: { increment: 1 },
+            streaks: 0, // Reset streak on timeout
           },
           create: {
             userId: user.id,
             attempts: 1,
+            attemptsToday: 1,
             corrects: 0,
             timeouts: 1,
+            streaks: 0,
           },
         });
 
@@ -296,6 +499,11 @@ export async function execute(interaction) {
               inline: false,
             },
             {
+              name: "💫 XP Penalty",
+              value: `${timeoutXpPenalty} XP\nTotal: ${newXP} XP (Level ${newLevel})`,
+              inline: true,
+            },
+            {
               name: "💡 Try Again",
               value: "Use `/quran-quiz` to test your knowledge again!",
               inline: false,
@@ -303,44 +511,196 @@ export async function execute(interaction) {
           )
           .setTimestamp();
 
-        // Disable all buttons
-        const disabledButtons = buttons.map((button, index) => {
-          const newButton = ButtonBuilder.from(button);
-          if (index === correctIndex) {
-            newButton.setStyle(ButtonStyle.Success);
-          } else {
-            newButton.setStyle(ButtonStyle.Secondary);
-          }
-          newButton.setDisabled(true);
-          return newButton;
-        });
-
-        const disabledRow = new ActionRowBuilder().addComponents(
-          disabledButtons
-        );
-
-        await interaction.editReply({
-          embeds: [timeoutEmbed],
-          components: [disabledRow],
-          files: [attachment],
-        });
+        try {
+          await safeEditReply(interaction, {
+            embeds: [timeoutEmbed],
+            components: [],
+            files: [attachment],
+          });
+        } catch (error) {
+          console.error("Error updating timeout message:", error.message);
+        }
       }
     });
   } catch (error) {
     console.error("Error in quran quiz:", error);
 
-    const errorEmbed = new EmbedBuilder()
-      .setTitle("❌ Quiz Error")
-      .setDescription("Failed to load quiz question. Please try again later.")
-      .setColor(0xff6b6b)
-      .setTimestamp();
+    // Only try to respond if we haven't already responded
+    if (!interaction.replied && !interaction.deferred) {
+      try {
+        await interaction.reply({
+          content:
+            "❌ An error occurred while loading the quiz. Please try again.",
+          ephemeral: true,
+        });
+      } catch (replyError) {
+        console.error("Failed to send error reply:", replyError.message);
+      }
+    } else {
+      try {
+        const errorEmbed = new EmbedBuilder()
+          .setTitle("❌ Quiz Error")
+          .setDescription(
+            "Failed to load quiz question. Please try again later."
+          )
+          .setColor(0xff6b6b)
+          .setTimestamp();
 
-    await interaction.editReply({ embeds: [errorEmbed] });
+        await safeEditReply(interaction, { embeds: [errorEmbed] });
+      } catch (editError) {
+        console.error("Failed to edit reply with error:", editError.message);
+      }
+    }
   } finally {
-    await quranVerses.disconnect();
-    await quranChapters.disconnect();
-    await prisma.$disconnect();
+    try {
+      await quranVerses.disconnect();
+      await quranChapters.disconnect();
+      await prisma.$disconnect();
+    } catch (cleanupError) {
+      console.error("Error during cleanup:", cleanupError.message);
+    }
   }
+}
+
+// Helper function to safely edit replies
+async function safeEditReply(interaction, options) {
+  try {
+    if (interaction.deferred || interaction.replied) {
+      return await interaction.editReply(options);
+    } else {
+      return await interaction.reply(options);
+    }
+  } catch (error) {
+    console.error("Error in safeEditReply:", error.message);
+
+    // If it's an API error, don't throw but log it
+    if (error.code === 40060 || error.code === "InteractionNotReplied") {
+      console.log("Interaction state issue, continuing execution");
+      return null;
+    }
+
+    throw error;
+  }
+}
+
+// Helper function to get all chapter names
+function getAllChapterNames() {
+  return [
+    "Al-Fatihah",
+    "Al-Baqarah",
+    "Ali 'Imran",
+    "An-Nisa",
+    "Al-Ma'idah",
+    "Al-An'am",
+    "Al-A'raf",
+    "Al-Anfal",
+    "At-Tawbah",
+    "Yunus",
+    "Hud",
+    "Yusuf",
+    "Ar-Ra'd",
+    "Ibrahim",
+    "Al-Hijr",
+    "An-Nahl",
+    "Al-Isra",
+    "Al-Kahf",
+    "Maryam",
+    "Taha",
+    "Al-Anbiya",
+    "Al-Hajj",
+    "Al-Mu'minun",
+    "An-Nur",
+    "Al-Furqan",
+    "Ash-Shu'ara",
+    "An-Naml",
+    "Al-Qasas",
+    "Al-'Ankabut",
+    "Ar-Rum",
+    "Luqman",
+    "As-Sajdah",
+    "Al-Ahzab",
+    "Saba",
+    "Fatir",
+    "Ya-Sin",
+    "As-Saffat",
+    "Sad",
+    "Az-Zumar",
+    "Ghafir",
+    "Fussilat",
+    "Ash-Shuraa",
+    "Az-Zukhruf",
+    "Ad-Dukhan",
+    "Al-Jathiyah",
+    "Al-Ahqaf",
+    "Muhammad",
+    "Al-Fath",
+    "Al-Hujurat",
+    "Qaf",
+    "Adh-Dhariyat",
+    "At-Tur",
+    "An-Najm",
+    "Al-Qamar",
+    "Ar-Rahman",
+    "Al-Waqi'ah",
+    "Al-Hadid",
+    "Al-Mujadila",
+    "Al-Hashr",
+    "Al-Mumtahanah",
+    "As-Saff",
+    "Al-Jumu'ah",
+    "Al-Munafiqun",
+    "At-Taghabun",
+    "At-Talaq",
+    "At-Tahrim",
+    "Al-Mulk",
+    "Al-Qalam",
+    "Al-Haqqah",
+    "Al-Ma'arij",
+    "Nuh",
+    "Al-Jinn",
+    "Al-Muzzammil",
+    "Al-Muddaththir",
+    "Al-Qiyamah",
+    "Al-Insan",
+    "Al-Mursalat",
+    "An-Naba",
+    "An-Nazi'at",
+    "'Abasa",
+    "At-Takwir",
+    "Al-Infitar",
+    "Al-Mutaffifin",
+    "Al-Inshiqaq",
+    "Al-Buruj",
+    "At-Tariq",
+    "Al-A'la",
+    "Al-Ghashiyah",
+    "Al-Fajr",
+    "Al-Balad",
+    "Ash-Shams",
+    "Al-Layl",
+    "Ad-Duhaa",
+    "Ash-Sharh",
+    "At-Tin",
+    "Al-'Alaq",
+    "Al-Qadr",
+    "Al-Bayyinah",
+    "Az-Zalzalah",
+    "Al-'Adiyat",
+    "Al-Qari'ah",
+    "At-Takathur",
+    "Al-'Asr",
+    "Al-Humazah",
+    "Al-Fil",
+    "Quraysh",
+    "Al-Ma'un",
+    "Al-Kawthar",
+    "Al-Kafirun",
+    "An-Nasr",
+    "Al-Masad",
+    "Al-Ikhlas",
+    "Al-Falaq",
+    "An-Nas",
+  ];
 }
 
 // Helper function to generate wrong answers
@@ -587,6 +947,16 @@ function getChapterName(chapterId) {
     102: "At-Takathur",
     103: "Al-'Asr",
     104: "Al-Humazah",
+    105: "Al-Fil",
+    106: "Quraysh",
+    107: "Al-Ma'un",
+    108: "Al-Kawthar",
+    109: "Al-Kafirun",
+    110: "An-Nasr",
+    111: "Al-Masad",
+    112: "Al-Ikhlas",
+    113: "Al-Falaq",
+    114: "An-Nas",
     105: "Al-Fil",
     106: "Quraysh",
     107: "Al-Ma'un",

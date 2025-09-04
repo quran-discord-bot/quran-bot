@@ -171,9 +171,6 @@ export async function execute(interaction) {
           inline: false,
         }
       )
-      .setFooter({
-        text: "Start exploring commands like /random-ayah to earn more XP!",
-      })
       .setTimestamp()
       .setThumbnail(interaction.user.displayAvatarURL());
 
