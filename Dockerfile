@@ -49,10 +49,12 @@ RUN echo '#!/bin/sh' > docker-entrypoint.sh && \
     echo '# Initialize database if needed' >> docker-entrypoint.sh && \
     echo 'echo "🔄 Checking database..."' >> docker-entrypoint.sh && \
     echo 'if [ ! -f "prisma/dev.db" ]; then' >> docker-entrypoint.sh && \
-    echo '  echo "📦 Database not found, running migrations..."' >> docker-entrypoint.sh && \
-    echo '  npx prisma migrate deploy' >> docker-entrypoint.sh && \
+    echo '  echo "📦 Database not found, creating and pushing schema..."' >> docker-entrypoint.sh && \
+    echo '  npx prisma db push' >> docker-entrypoint.sh && \
+    echo '  npx prisma migrate deploy || echo "⚠️  Migration deploy failed, continuing..."' >> docker-entrypoint.sh && \
     echo 'else' >> docker-entrypoint.sh && \
     echo '  echo "✅ Database exists, ensuring schema is current..."' >> docker-entrypoint.sh && \
+    echo '  npx prisma db push || echo "⚠️  Schema push failed, trying migrations..."' >> docker-entrypoint.sh && \
     echo '  npx prisma migrate deploy || echo "⚠️  Migration failed, continuing..."' >> docker-entrypoint.sh && \
     echo 'fi' >> docker-entrypoint.sh && \
     echo '' >> docker-entrypoint.sh && \
