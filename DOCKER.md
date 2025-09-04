@@ -13,19 +13,21 @@ This Discord bot is fully containerized and ready for production deployment.
 ### Quick Start
 
 1. **Clone and configure:**
+
    ```bash
    # Copy environment template
    cp .env.example .env
-   
+
    # Edit .env with your credentials
    nano .env
    ```
 
 2. **Build and run:**
+
    ```bash
    # Using Docker Compose (recommended)
    docker-compose up -d
-   
+
    # Or build and run manually
    docker build -t discord-bot .
    docker run -d --name discord-bot --env-file .env discord-bot
@@ -56,6 +58,7 @@ QURAN_FOUNDATION_API_KEY=your_api_key_here
 ### Docker Features
 
 #### ✅ Production Optimizations
+
 - **Multi-stage build** for minimal image size
 - **Alpine Linux** base for security and size
 - **Non-root user** execution
@@ -64,12 +67,14 @@ QURAN_FOUNDATION_API_KEY=your_api_key_here
 - **Logging** rotation setup
 
 #### ✅ Database Integration
+
 - **Prisma ORM** with SQLite
 - **Automatic migrations** on startup
 - **Correct binary targets** for Alpine Linux
 - **Persistent data** via volumes
 
 #### ✅ Canvas Support
+
 - **Native dependencies** pre-installed
 - **Arabic font support** for Quran rendering
 - **@napi-rs/canvas** fully working
@@ -83,6 +88,7 @@ The container automatically handles database setup:
 3. **Data persistence**: Database stored in container filesystem
 
 For production with persistent data:
+
 ```yaml
 volumes:
   - ./data:/app/prisma
@@ -91,6 +97,7 @@ volumes:
 ### Monitoring & Health
 
 Built-in health check endpoint:
+
 ```bash
 # Check container health
 docker inspect --format='{{.State.Health.Status}}' discord-bot
@@ -104,14 +111,17 @@ docker inspect discord-bot | grep -A 10 "Health"
 #### Common Issues
 
 1. **"Module not found" errors:**
+
    - Ensure all dependencies are installed
    - Rebuild image: `docker-compose up --build`
 
 2. **Prisma client errors:**
+
    - Fixed with `linux-musl-openssl-3.0.x` binary target
    - Container automatically generates correct client
 
 3. **Permission errors:**
+
    - Container runs as `node` user
    - Ensure file permissions are correct
 
@@ -123,6 +133,7 @@ docker inspect discord-bot | grep -A 10 "Health"
 #### Debug Mode
 
 Run with debug information:
+
 ```bash
 docker run --rm -it --env-file .env discord-bot
 ```
@@ -130,16 +141,19 @@ docker run --rm -it --env-file .env discord-bot
 ### Production Deployment
 
 #### Resource Requirements
+
 - **Memory**: 128-256MB
 - **CPU**: 0.1-0.5 cores
 - **Storage**: ~500MB image + data
 
 #### Scaling Options
+
 - **Horizontal**: Multiple guild-specific bots
 - **Vertical**: Increase resource limits
 - **Load balancing**: Not needed for Discord bots
 
 #### Security Considerations
+
 - Store secrets in environment variables
 - Use non-root container execution
 - Regular image updates
@@ -148,6 +162,7 @@ docker run --rm -it --env-file .env discord-bot
 ### Development
 
 For development with live reload:
+
 ```bash
 # Build development image
 docker build -f Dockerfile.dev -t discord-bot:dev .
@@ -162,6 +177,7 @@ docker run -it --rm \
 ### Support
 
 If you encounter issues:
+
 1. Check the logs first: `docker-compose logs -f`
 2. Verify environment variables are set correctly
 3. Ensure Discord permissions are configured

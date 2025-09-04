@@ -13,8 +13,14 @@ services:
       - BOT_TOKEN=${BOT_TOKEN}
       - CLIENT_ID=${CLIENT_ID}
       - GUILD_ID=${GUILD_ID}
+      - DATABASE_URL=${DATABASE_URL}
+      - QURAN_CLIENT_ID=${QURAN_CLIENT_ID}
+      - QURAN_CLIENT_SECRET=${QURAN_CLIENT_SECRET}
+      - QURAN_ENDPOINT=${QURAN_ENDPOINT}
     env_file:
       - .env
+    volumes:
+      - discord-bot-data:/app/prisma
     # Uncomment if your bot serves HTTP endpoints
     # ports:
     #   - "3000:3000"
@@ -44,37 +50,6 @@ services:
       retries: 3
       start_period: 10s
 
-  # Optional: Lightweight version with distroless
-  discord-bot-distroless:
-    build:
-      context: .
-      dockerfile: Dockerfile.distroless
-    image: discord-bot:distroless
-    container_name: discord-bot-distroless
-    restart: unless-stopped
-    environment:
-      - NODE_ENV=production
-      - BOT_TOKEN=${BOT_TOKEN}
-      - CLIENT_ID=${CLIENT_ID}
-      - GUILD_ID=${GUILD_ID}
-    env_file:
-      - .env
-    profiles:
-      - distroless
-
-    # Resource limits (even lower for distroless)
-    deploy:
-      resources:
-        limits:
-          memory: 192M
-          cpus: "0.3"
-        reservations:
-          memory: 96M
-          cpus: "0.05"
-
-    # Logging configuration
-    logging:
-      driver: "json-file"
-      options:
-        max-size: "10m"
-        max-file: "3"
+volumes:
+  discord-bot-data:
+    driver: local
