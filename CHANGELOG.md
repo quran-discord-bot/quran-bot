@@ -2,6 +2,15 @@
 
 All notable changes to this project will be documented in this file. See [standard-version](https://github.com/conventional-changelog/standard-version) for commit guidelines.
 
+## [1.3.0](https://github.com/runsdev/discord-bot/compare/v1.2.16...v1.3.0) (2025-09-04)
+
+
+### Features
+
+* **assets:** add quran font assets from quran.com repository ([3005959](https://github.com/runsdev/discord-bot/commit/300595916e5586ca971800cb6c73855beb0e236f))
+* **commands:** add some quran utility commands from quran.com apis ([5bfa6b6](https://github.com/runsdev/discord-bot/commit/5bfa6b6f78d7f5f319a38f74b6dd9ea9b00d2f8e))
+* **prisma:** added prisma sqlite integration ([a52390f](https://github.com/runsdev/discord-bot/commit/a52390fd3c541cb90f12fa56cafb20f673b6be58))
+
 ### [1.2.16](https://github.com/runsdev/discord-bot/compare/v1.2.15...v1.2.16) (2025-09-03)
 
 ### [1.2.15](https://github.com/runsdev/discord-bot/compare/v1.2.14...v1.2.15) (2025-09-03)
