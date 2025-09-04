@@ -1,78 +1,72 @@
-# Multi-stage build for Discord bot
-# Stage 1: Build dependencies (Alpine-based for smaller size)
-FROM node:18-alpine AS builder
+# Production Discord Bot Dockerfile
+# Multi-stage build for optimized image size
+FROM node:18-alpine AS dependencies
 
-# Set working directory
+# Install system dependencies for canvas and native modules
+RUN apk add --no-cache python3 make g++
+
 WORKDIR /app
 
 # Copy package files
 COPY package*.json ./
 
-# Install production dependencies only (use install instead of ci to avoid lock file issues)
-# Set npm config to ignore scripts during install to avoid postinstall issues
-RUN npm config set ignore-scripts true && \
-    npm install --only=production && \
+# Install production dependencies only, skip scripts to avoid husky
+RUN npm install --omit=dev --ignore-scripts && \
     npm cache clean --force
 
-# Install Prisma CLI for database operations
-RUN npm install -g prisma
+# Install Prisma CLI for client generation
+RUN npm install prisma@^5.22.0
 
-# Stage 2: Production runtime (Alpine)
+# Production stage
 FROM node:18-alpine AS production
 
-# Create app directory
 WORKDIR /app
 
-# Create non-root user for security
-RUN addgroup -g 1001 -S nodejs && \
-    adduser -S discordbot -u 1001
+# Install runtime dependencies for canvas
+RUN apk add --no-cache python3
 
-# Copy production dependencies from builder stage
-COPY --from=builder --chown=discordbot:nodejs /app/node_modules ./node_modules
+# Copy dependencies from build stage
+COPY --from=dependencies /app/node_modules ./node_modules
 
-# Copy only necessary application files
-COPY --chown=discordbot:nodejs index.js ./
-COPY --chown=discordbot:nodejs commands/ ./commands/
-COPY --chown=discordbot:nodejs events/ ./events/
-COPY --chown=discordbot:nodejs utility/ ./utility/
-COPY --chown=discordbot:nodejs assets/ ./assets/
-COPY --chown=discordbot:nodejs prisma/ ./prisma/
-COPY --chown=discordbot:nodejs generated/ ./generated/
-COPY --chown=discordbot:nodejs package.json ./
+# Copy application source
+COPY . .
 
-# Ensure database directory exists and set proper permissions
-RUN mkdir -p /app/prisma && \
-    chown -R discordbot:nodejs /app/prisma
+# Set environment variables
+ENV NODE_ENV=production
+ENV DATABASE_URL="file:./dev.db"
 
-# Generate Prisma client and initialize database (run as root before switching user)
-RUN npx prisma generate --schema=./prisma/schema.prisma && \
-    chown -R discordbot:nodejs /app/generated
+# Create directories and set permissions
+RUN mkdir -p generated/prisma prisma && \
+    chown -R node:node .
 
-# Create a startup script that handles database initialization (as root)
-RUN echo '#!/bin/sh' > /app/start.sh && \
-    echo 'echo "Starting Discord Bot..."' >> /app/start.sh && \
-    echo 'echo "Checking database..."' >> /app/start.sh && \
-    echo 'if [ ! -f "/app/prisma/dev.db" ]; then' >> /app/start.sh && \
-    echo '  echo "Database not found, running migrations..."' >> /app/start.sh && \
-    echo '  npx prisma migrate deploy --schema=/app/prisma/schema.prisma' >> /app/start.sh && \
-    echo 'else' >> /app/start.sh && \
-    echo '  echo "Database found, ensuring schema is up to date..."' >> /app/start.sh && \
-    echo '  npx prisma migrate deploy --schema=/app/prisma/schema.prisma' >> /app/start.sh && \
-    echo 'fi' >> /app/start.sh && \
-    echo 'echo "Starting bot application..."' >> /app/start.sh && \
-    echo 'exec node index.js' >> /app/start.sh && \
-    chmod +x /app/start.sh && \
-    chown discordbot:nodejs /app/start.sh
+# Generate Prisma client with correct binary target for Alpine
+RUN npx prisma generate
 
-# Switch to non-root user
-USER discordbot
+# Create database initialization script
+RUN echo '#!/bin/sh' > docker-entrypoint.sh && \
+    echo 'set -e' >> docker-entrypoint.sh && \
+    echo '' >> docker-entrypoint.sh && \
+    echo '# Initialize database if needed' >> docker-entrypoint.sh && \
+    echo 'echo "🔄 Checking database..."' >> docker-entrypoint.sh && \
+    echo 'if [ ! -f "prisma/dev.db" ]; then' >> docker-entrypoint.sh && \
+    echo '  echo "📦 Database not found, running migrations..."' >> docker-entrypoint.sh && \
+    echo '  npx prisma migrate deploy' >> docker-entrypoint.sh && \
+    echo 'else' >> docker-entrypoint.sh && \
+    echo '  echo "✅ Database exists, ensuring schema is current..."' >> docker-entrypoint.sh && \
+    echo '  npx prisma migrate deploy || echo "⚠️  Migration failed, continuing..."' >> docker-entrypoint.sh && \
+    echo 'fi' >> docker-entrypoint.sh && \
+    echo '' >> docker-entrypoint.sh && \
+    echo '# Start the Discord bot' >> docker-entrypoint.sh && \
+    echo 'echo "🤖 Starting Discord Bot..."' >> docker-entrypoint.sh && \
+    echo 'exec node index.js' >> docker-entrypoint.sh && \
+    chmod +x docker-entrypoint.sh
 
-# Expose port (if your bot serves HTTP endpoints)
-# EXPOSE 3000
+# Switch to non-root user for security
+USER node
 
 # Health check
 HEALTHCHECK --interval=30s --timeout=3s --start-period=5s --retries=3 \
-    CMD node -e "console.log('Bot is running')" || exit 1
+    CMD node -e "console.log('Bot is healthy')" || exit 1
 
-# Start the application with database initialization
-CMD ["/app/start.sh"]
+# Start the bot
+ENTRYPOINT ["./docker-entrypoint.sh"]

@@ -3,3 +3,4 @@
 /dist
 /generated/prisma
 /prisma/dev.db
+/prisma/prod.db
