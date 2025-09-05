@@ -492,6 +492,155 @@ class QuranCanvas {
   }
 
   /**
+   * Create a canvas image with a full verse where specific words are highlighted in light pink
+   * @param {Object} options - Configuration options
+   * @param {string} options.fullVerse - Complete Arabic text/glyph to render
+   * @param {string} options.highlightedWords - Words to highlight in light pink (space-separated)
+   * @param {number|number[]} options.pages - Page number(s) for font selection
+   * @param {string} options.version - Font version ("v1" or "v2", default: "v2")
+   * @param {number} options.width - Canvas width (default: 800)
+   * @param {number} options.height - Canvas height (default: 600)
+   * @param {number} options.fontSize - Font size (default: 48)
+   * @param {string} options.baseColor - Base text color (default: "#000000")
+   * @param {string} options.highlightColor - Highlight color (default: "#FFB6C1" - light pink)
+   * @param {string} options.colorScheme - Color scheme ("dark" or "light", default: "dark")
+   * @param {string} options.textAlign - Text alignment ("left", "center", "right", default: "right")
+   * @param {number} options.lineHeight - Line height multiplier (default: 1.5)
+   * @param {Object} options.padding - Padding {top, right, bottom, left} (default: {top: 50, right: 50, bottom: 50, left: 50})
+   * @returns {Buffer} PNG image buffer
+   */
+  createHighlightedVerseImage(options) {
+    const {
+      fullVerse,
+      highlightedWords,
+      pages,
+      version = "v2",
+      width = 800,
+      height = 600,
+      fontSize = 48,
+      baseColor = null,
+      highlightColor = "#FFB6C1", // Light pink
+      colorScheme = "dark",
+      textAlign = "right",
+      lineHeight = 1.5,
+      padding = { top: 50, right: 50, bottom: 50, left: 50 },
+    } = options;
+
+    if (!fullVerse) {
+      throw new Error("Full verse text is required");
+    }
+
+    if (!highlightedWords) {
+      throw new Error("Highlighted words are required");
+    }
+
+    if (!pages) {
+      throw new Error("Page number(s) required");
+    }
+
+    // Validate version
+    if (!["v2"].includes(version)) {
+      throw new Error("Version must be 'v1' or 'v2'");
+    }
+
+    // Validate page numbers
+    const pageArray = Array.isArray(pages) ? pages : [pages];
+    for (const page of pageArray) {
+      if (!Number.isInteger(page) || page < 1 || page > 604) {
+        throw new Error(
+          `Invalid page number: ${page}. Must be between 1 and 604.`
+        );
+      }
+    }
+
+    // Register fonts for all pages
+    const fontFamilies = pageArray.map((page) =>
+      this.registerPageFont(page, version)
+    );
+
+    // Create canvas
+    const canvas = createCanvas(width, height);
+    const ctx = canvas.getContext("2d");
+
+    // Fill background
+    ctx.fillStyle = colorScheme === "dark" ? "#1a1a1a" : "#ffffff";
+    ctx.fillRect(0, 0, width, height);
+
+    // Set default base color based on color scheme
+    const defaultBaseColor = colorScheme === "dark" ? "#ffffff" : "#000000";
+    const textBaseColor = baseColor || defaultBaseColor;
+
+    // Configure text rendering
+    ctx.textAlign = textAlign;
+    ctx.textBaseline = "top";
+    ctx.font = `${fontSize}px ${fontFamilies[0]}`;
+
+    // Split both full verse and highlighted words
+    const fullVerseWords = fullVerse.trim().split(/\s+/);
+    const highlightWordsArray = highlightedWords.trim().split(/\s+/);
+
+    // Create a set for faster lookup
+    const highlightSet = new Set(highlightWordsArray);
+
+    // Calculate starting position
+    let currentX = textAlign === "right" ? width - padding.right : padding.left;
+    let currentY = padding.top;
+    const maxWidth = width - padding.left - padding.right;
+
+    // Process each word
+    fullVerseWords.forEach((word, index) => {
+      const fontFamily = fontFamilies[0]; // Use first font family
+      ctx.font = `${fontSize}px ${fontFamily}`;
+
+      // Measure word width
+      const wordWidth = ctx.measureText(word + " ").width;
+
+      // Check if we need to wrap to next line
+      if (textAlign === "right") {
+        if (currentX - wordWidth < padding.left) {
+          currentY += fontSize * lineHeight;
+          currentX = width - padding.right;
+        }
+      } else {
+        if (currentX + wordWidth > width - padding.right) {
+          currentY += fontSize * lineHeight;
+          currentX = padding.left;
+        }
+      }
+
+      // Determine if this word should be highlighted
+      const shouldHighlight = highlightSet.has(word);
+
+      // Set color
+      ctx.fillStyle = shouldHighlight ? highlightColor : textBaseColor;
+
+      // Calculate text position
+      let textX = currentX;
+      if (textAlign === "right") {
+        textX = currentX - ctx.measureText(word).width + 100;
+      }
+
+      // Render the word
+      ctx.fillText(word, textX, currentY);
+
+      // Add subtle stroke for better visibility
+      ctx.strokeStyle = shouldHighlight ? highlightColor : textBaseColor;
+      ctx.lineWidth = 0.5;
+      ctx.strokeText(word, textX, currentY);
+
+      // Update position for next word
+      if (textAlign === "right") {
+        currentX -= wordWidth;
+      } else {
+        currentX += wordWidth;
+      }
+    });
+
+    // Return image buffer
+    return canvas.toBuffer("image/png");
+  }
+
+  /**
    * Get all registered font families
    * @returns {string[]} Array of registered font family names
    */

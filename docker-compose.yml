@@ -5,7 +5,7 @@ services:
     build:
       context: .
       dockerfile: Dockerfile
-    image: discord-bot:latest
+    image: discord-bot:production
     container_name: discord-bot
     restart: unless-stopped
     environment:
@@ -20,7 +20,7 @@ services:
     env_file:
       - .env
     volumes:
-      - discord-bot-data:/app/prisma
+      - discord-bot-data:/app/db
     # Uncomment if your bot serves HTTP endpoints
     # ports:
     #   - "3000:3000"

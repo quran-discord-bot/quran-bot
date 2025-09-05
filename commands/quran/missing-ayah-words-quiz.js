@@ -29,7 +29,12 @@ export async function execute(interaction) {
   const canvas = new QuranCanvas();
 
   try {
-    await interaction.deferReply();
+    // Check if interaction is already acknowledged
+    if (interaction.replied || interaction.deferred) {
+      console.log("Interaction already acknowledged, skipping defer");
+    } else {
+      await interaction.deferReply();
+    }
 
     const userId = interaction.user.id;
 
@@ -214,7 +219,30 @@ export async function execute(interaction) {
     });
 
     collector.on("collect", async (componentInteraction) => {
-      await componentInteraction.deferUpdate();
+      try {
+        // Check if component interaction is valid and not expired
+        if (!componentInteraction.isButton()) {
+          console.log("Invalid component interaction type");
+          return;
+        }
+
+        await componentInteraction.deferUpdate();
+      } catch (error) {
+        console.error("Error deferring component interaction:", error.message);
+
+        // Handle specific Discord API errors
+        if (error.code === 10062) {
+          console.log("Interaction expired, stopping collector");
+          collector.stop("expired");
+          return;
+        } else if (error.code === 40060) {
+          console.log("Interaction already acknowledged");
+          // Continue with the logic even if defer failed
+        } else {
+          console.error("Unexpected error in component interaction:", error);
+          return;
+        }
+      }
 
       // Get selected number of missing words
       const selectedCount = parseInt(
@@ -229,51 +257,61 @@ export async function execute(interaction) {
       const newLevel = Math.floor(newXP / 100) + 1;
       const newStreak = isCorrect ? (currentStats?.streaks || 0) + 1 : 0;
 
-      // Update database
-      await prisma.userExperience.upsert({
-        where: { userId: user.id },
-        update: { experience: newXP },
-        create: { userId: user.id, experience: newXP },
-      });
+      try {
+        // Update database
+        await prisma.userExperience.upsert({
+          where: { userId: user.id },
+          update: { experience: newXP },
+          create: { userId: user.id, experience: newXP },
+        });
 
-      await prisma.quranQuizTypeThreeStats.upsert({
-        where: { userId: user.id },
-        update: {
-          attempts: { increment: 1 },
-          attemptsToday: { increment: 1 },
-          streaks: newStreak,
-          corrects: isCorrect ? { increment: 1 } : undefined,
-        },
-        create: {
-          userId: user.id,
-          attempts: 1,
-          attemptsToday: 1,
-          streaks: isCorrect ? 1 : 0,
-          corrects: isCorrect ? 1 : 0,
-          timeouts: 0,
-        },
-      });
+        await prisma.quranQuizTypeThreeStats.upsert({
+          where: { userId: user.id },
+          update: {
+            attempts: { increment: 1 },
+            attemptsToday: { increment: 1 },
+            streaks: newStreak,
+            corrects: isCorrect ? { increment: 1 } : undefined,
+          },
+          create: {
+            userId: user.id,
+            attempts: 1,
+            attemptsToday: 1,
+            streaks: isCorrect ? 1 : 0,
+            corrects: isCorrect ? 1 : 0,
+            timeouts: 0,
+          },
+        });
+      } catch (dbError) {
+        console.error("Database update error:", dbError.message);
+      }
 
       // Create missing words image if there are any missing words
       const attachments = [attachment]; // Original question image
 
       if (missingWords.length > 0) {
-        const missingWordsText = missingWords.join(" ");
-        const missingWordsImageAttachment = canvas.createQuranImage({
-          glyph: missingWordsText,
-          pages: verse.page_number,
-          height: (missingWordsText.length / 10) * 50 + 150,
-          width: missingWordsText.length * 100 + 50,
-        });
+        try {
+          const missingWordsText = missingWords.join(" ");
+          const missingWordsImageAttachment = canvas.createQuranImage({
+            glyph: missingWordsText,
+            pages: verse.page_number,
+            height: (missingWordsText.length / 10) * 50 + 150,
+          });
 
-        const missingWordsAttachment = new AttachmentBuilder(
-          missingWordsImageAttachment,
-          {
-            name: "missing-words-answer.png",
-          }
-        );
+          const missingWordsAttachment = new AttachmentBuilder(
+            missingWordsImageAttachment,
+            {
+              name: "missing-words-answer.png",
+            }
+          );
 
-        attachments.push(missingWordsAttachment);
+          attachments.push(missingWordsAttachment);
+        } catch (imageError) {
+          console.error(
+            "Error creating missing words image:",
+            imageError.message
+          );
+        }
       }
 
       // Create result embed
@@ -288,7 +326,7 @@ export async function execute(interaction) {
         .addFields(
           {
             name: "❓ Original Question",
-            value: "The verse with missing words shown on 1st image",
+            value: "The verse with missing words (shown above)",
             inline: false,
           },
           {
@@ -296,7 +334,9 @@ export async function execute(interaction) {
             value:
               correctCount === 0
                 ? "None (complete verse)"
-                : `The missing words were shown on 2nd image`,
+                : `The missing words were: ${missingWords.join(" ")}${
+                    missingWords.length > 0 ? " (shown below)" : ""
+                  }`,
             inline: false,
           },
           {
@@ -333,127 +373,203 @@ export async function execute(interaction) {
         new ActionRowBuilder().addComponents(disabledButtons),
       ];
 
-      await interaction.editReply({
-        embeds: [resultEmbed],
-        components: disabledComponents,
-        files: attachments,
-      });
-
-      collector.stop();
-    });
-
-    collector.on("end", async (collected) => {
-      if (collected.size === 0) {
-        // Timeout - apply XP penalty
-        const timeoutXpPenalty = -1; // Always -1 for missing words quiz (no advanced mode penalty difference)
-        const newXP = Math.max(
-          0,
-          (user.experience?.experience || 0) + timeoutXpPenalty
-        );
-        const newLevel = Math.floor(newXP / 100) + 1;
-
-        // Update user experience with timeout penalty
-        await prisma.userExperience.upsert({
-          where: { userId: user.id },
-          update: {
-            experience: newXP,
-          },
-          create: {
-            userId: user.id,
-            experience: newXP,
-          },
-        });
-
-        await prisma.quranQuizTypeThreeStats.upsert({
-          where: { userId: user.id },
-          update: {
-            attempts: { increment: 1 },
-            attemptsToday: { increment: 1 },
-            timeouts: { increment: 1 },
-            streaks: 0,
-          },
-          create: {
-            userId: user.id,
-            attempts: 1,
-            attemptsToday: 1,
-            corrects: 0,
-            timeouts: 1,
-            streaks: 0,
-          },
-        });
-
-        // Create missing words image for timeout response
-        const attachments = [attachment]; // Original question image
-
-        if (missingWords.length > 0) {
-          const missingWordsText = missingWords.join(" ");
-          const missingWordsImageAttachment = canvas.createQuranImage({
-            glyph: missingWordsText,
-            pages: verse.page_number,
-            height: (missingWordsText.length / 10) * 50 + 150,
-          });
-
-          const missingWordsAttachment = new AttachmentBuilder(
-            missingWordsImageAttachment,
-            {
-              name: "missing-words-answer.png",
-            }
-          );
-
-          attachments.push(missingWordsAttachment);
-        }
-
-        const timeoutEmbed = new EmbedBuilder()
-          .setTitle("⏰ Time's Up!")
-          .setDescription(
-            `Time ran out! The correct answer was **${missingWords.length}** missing words.`
-          )
-          .setColor(0xffa500)
-          .addFields(
-            {
-              name: "❓ Original Question",
-              value: "The verse with missing words (shown above)",
-              inline: false,
-            },
-            {
-              name: "🔍 Missing Words Answer",
-              value:
-                missingWords.length === 0
-                  ? "None (complete verse)"
-                  : `The missing words were: ${missingWords.join(" ")}${
-                      missingWords.length > 0 ? " (shown below)" : ""
-                    }`,
-              inline: false,
-            },
-            {
-              name: "💫 XP Penalty",
-              value: `${timeoutXpPenalty} XP\nTotal: ${newXP} XP (Level ${newLevel})`,
-              inline: true,
-            }
-          )
-          .setTimestamp();
-
-        await interaction.editReply({
-          embeds: [timeoutEmbed],
-          components: [],
+      try {
+        await safeEditReply(interaction, {
+          embeds: [resultEmbed],
+          components: disabledComponents,
           files: attachments,
         });
+      } catch (replyError) {
+        console.error("Error updating quiz result:", replyError.message);
+      }
+
+      collector.stop("answered");
+    });
+
+    collector.on("end", async (collected, reason) => {
+      try {
+        if (collected.size === 0 && reason !== "expired") {
+          // Timeout - apply XP penalty
+          const timeoutXpPenalty = -1;
+          const newXP = Math.max(
+            0,
+            (user.experience?.experience || 0) + timeoutXpPenalty
+          );
+          const newLevel = Math.floor(newXP / 100) + 1;
+
+          // Update user experience with timeout penalty
+          try {
+            await prisma.userExperience.upsert({
+              where: { userId: user.id },
+              update: {
+                experience: newXP,
+              },
+              create: {
+                userId: user.id,
+                experience: newXP,
+              },
+            });
+
+            await prisma.quranQuizTypeThreeStats.upsert({
+              where: { userId: user.id },
+              update: {
+                attempts: { increment: 1 },
+                attemptsToday: { increment: 1 },
+                timeouts: { increment: 1 },
+                streaks: 0,
+              },
+              create: {
+                userId: user.id,
+                attempts: 1,
+                attemptsToday: 1,
+                corrects: 0,
+                timeouts: 1,
+                streaks: 0,
+              },
+            });
+          } catch (dbError) {
+            console.error("Database timeout update error:", dbError.message);
+          }
+
+          // Create missing words image for timeout response
+          const attachments = [attachment]; // Original question image
+
+          if (missingWords.length > 0) {
+            try {
+              const missingWordsText = missingWords.join(" ");
+              const missingWordsImageAttachment = canvas.createQuranImage({
+                glyph: missingWordsText,
+                pages: verse.page_number,
+                height: (missingWordsText.length / 10) * 50 + 150,
+              });
+
+              const missingWordsAttachment = new AttachmentBuilder(
+                missingWordsImageAttachment,
+                {
+                  name: "missing-words-answer.png",
+                }
+              );
+
+              attachments.push(missingWordsAttachment);
+            } catch (imageError) {
+              console.error(
+                "Error creating timeout image:",
+                imageError.message
+              );
+            }
+          }
+
+          const timeoutEmbed = new EmbedBuilder()
+            .setTitle("⏰ Time's Up!")
+            .setDescription(
+              `Time ran out! The correct answer was **${missingWords.length}** missing words.`
+            )
+            .setColor(0xffa500)
+            .addFields(
+              {
+                name: "❓ Original Question",
+                value: "The verse with missing words (shown above)",
+                inline: false,
+              },
+              {
+                name: "🔍 Missing Words Answer",
+                value:
+                  missingWords.length === 0
+                    ? "None (complete verse)"
+                    : `The missing words were: ${missingWords.join(" ")}${
+                        missingWords.length > 0 ? " (shown below)" : ""
+                      }`,
+                inline: false,
+              },
+              {
+                name: "💫 XP Penalty",
+                value: `${timeoutXpPenalty} XP\nTotal: ${newXP} XP (Level ${newLevel})`,
+                inline: true,
+              }
+            )
+            .setTimestamp();
+
+          try {
+            await safeEditReply(interaction, {
+              embeds: [timeoutEmbed],
+              components: [],
+              files: attachments,
+            });
+          } catch (timeoutReplyError) {
+            console.error(
+              "Error sending timeout message:",
+              timeoutReplyError.message
+            );
+          }
+        } else if (reason === "expired") {
+          console.log("Quiz collector expired due to interaction timeout");
+        }
+      } catch (endError) {
+        console.error("Error in collector end handler:", endError.message);
       }
     });
   } catch (error) {
     console.error("Error in missing words quiz:", error);
 
-    const errorEmbed = new EmbedBuilder()
-      .setTitle("❌ Quiz Error")
-      .setDescription("Failed to load quiz question. Please try again later.")
-      .setColor(0xff6b6b)
-      .setTimestamp();
+    // Only try to respond if we haven't already responded
+    if (!interaction.replied && !interaction.deferred) {
+      try {
+        await interaction.reply({
+          content:
+            "❌ An error occurred while loading the quiz. Please try again.",
+          ephemeral: true,
+        });
+      } catch (replyError) {
+        console.error("Failed to send error reply:", replyError.message);
+      }
+    } else {
+      try {
+        const errorEmbed = new EmbedBuilder()
+          .setTitle("❌ Quiz Error")
+          .setDescription(
+            "Failed to load quiz question. Please try again later."
+          )
+          .setColor(0xff6b6b)
+          .setTimestamp();
 
-    await interaction.editReply({ embeds: [errorEmbed] });
+        await safeEditReply(interaction, { embeds: [errorEmbed] });
+      } catch (editError) {
+        console.error("Failed to edit reply with error:", editError.message);
+      }
+    }
   } finally {
-    await quranVerses.disconnect();
-    await quranChapters.disconnect();
-    await prisma.$disconnect();
+    try {
+      await quranVerses.disconnect();
+      await quranChapters.disconnect();
+      await prisma.$disconnect();
+    } catch (cleanupError) {
+      console.error("Error during cleanup:", cleanupError.message);
+    }
+  }
+}
+
+// Helper function to safely edit replies
+async function safeEditReply(interaction, options) {
+  try {
+    if (interaction.deferred || interaction.replied) {
+      return await interaction.editReply(options);
+    } else {
+      return await interaction.reply(options);
+    }
+  } catch (error) {
+    console.error("Error in safeEditReply:", error.message);
+
+    // If it's an API error, don't throw but log it
+    if (
+      error.code === 40060 ||
+      error.code === "InteractionNotReplied" ||
+      error.code === 10062
+    ) {
+      console.log("Interaction state issue, continuing execution");
+      return null;
+    }
+
+    throw error;
   }
 }
 

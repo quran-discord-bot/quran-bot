@@ -4,3 +4,4 @@
 /generated/prisma
 /prisma/prod.db
 .env.prod
+/db/prod.db

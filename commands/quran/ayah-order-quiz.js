@@ -27,7 +27,12 @@ export async function execute(interaction) {
   const canvas = new QuranCanvas();
 
   try {
-    await interaction.deferReply();
+    // Check if interaction is already acknowledged
+    if (interaction.replied || interaction.deferred) {
+      console.log("Interaction already acknowledged, skipping defer");
+    } else {
+      await interaction.deferReply();
+    }
 
     const userId = interaction.user.id;
 
@@ -65,9 +70,27 @@ export async function execute(interaction) {
         .setFooter({ text: "Registration is quick and free!" })
         .setTimestamp();
 
-      await interaction.editReply({ embeds: [embed] });
+      await safeEditReply(interaction, { embeds: [embed] });
       return;
     }
+
+    // Check and reset daily attempts if it's a new day
+    const today = new Date().toDateString();
+    const lastUpdate = user.quizStatsTypeTwo?.updatedAt?.toDateString();
+    const isNewDay = today !== lastUpdate;
+
+    if (isNewDay && user.quizStatsTypeTwo) {
+      await prisma.quranQuizTypeTwoStats.update({
+        where: { userId: user.id },
+        data: { attemptsToday: 0 },
+      });
+    }
+
+    // Get current daily attempts and stats
+    const currentStats = await prisma.quranQuizTypeTwoStats.findUnique({
+      where: { userId: user.id },
+    });
+    const attemptsToday = isNewDay ? 0 : currentStats?.attemptsToday || 0;
 
     // Get a random chapter (excluding very short chapters for better quiz experience)
     const chapterId = getRandomChapterForOrderQuiz();
@@ -88,9 +111,9 @@ export async function execute(interaction) {
     );
 
     if (!verse1 || !verse2) {
-      await interaction.editReply(
-        "❌ Failed to get quiz verses. Please try again."
-      );
+      await safeEditReply(interaction, {
+        content: "❌ Failed to get quiz verses. Please try again.",
+      });
       return;
     }
 
@@ -179,11 +202,16 @@ export async function execute(interaction) {
       })
       .setTimestamp();
 
-    const quizMessage = await interaction.editReply({
+    const quizMessage = await safeEditReply(interaction, {
       embeds: [embed],
       components: [actionRow],
       files: [attachment1],
     });
+
+    if (!quizMessage) {
+      console.error("Failed to send quiz message");
+      return;
+    }
 
     // Create collector for button interactions
     const collector = quizMessage.createMessageComponentCollector({
@@ -193,7 +221,30 @@ export async function execute(interaction) {
     });
 
     collector.on("collect", async (buttonInteraction) => {
-      await buttonInteraction.deferUpdate();
+      try {
+        // Check if component interaction is valid and not expired
+        if (!buttonInteraction.isButton()) {
+          console.log("Invalid component interaction type");
+          return;
+        }
+
+        await buttonInteraction.deferUpdate();
+      } catch (error) {
+        console.error("Error deferring component interaction:", error.message);
+
+        // Handle specific Discord API errors
+        if (error.code === 10062) {
+          console.log("Interaction expired, stopping collector");
+          collector.stop("expired");
+          return;
+        } else if (error.code === 40060) {
+          console.log("Interaction already acknowledged");
+          // Continue with the logic even if defer failed
+        } else {
+          console.error("Unexpected error in component interaction:", error);
+          return;
+        }
+      }
 
       const userAnsweredTrue = buttonInteraction.customId === "order_quiz_true";
       const isCorrect = userAnsweredTrue === isFirstBeforeSecond;
@@ -216,36 +267,40 @@ export async function execute(interaction) {
         newLevel = Math.floor(newXP / 100) + 1;
       }
 
-      // Update database
-      await prisma.userExperience.upsert({
-        where: { userId: user.id },
-        update: {
-          experience: newXP,
-        },
-        create: {
-          userId: user.id,
-          experience: newXP,
-        },
-      });
+      try {
+        // Update database
+        await prisma.userExperience.upsert({
+          where: { userId: user.id },
+          update: {
+            experience: newXP,
+          },
+          create: {
+            userId: user.id,
+            experience: newXP,
+          },
+        });
 
-      // Update quiz statistics (Type Two)
-      await prisma.quranQuizTypeTwoStats.upsert({
-        where: { userId: user.id },
-        update: {
-          attempts: { increment: 1 },
-          attemptsToday: { increment: 1 },
-          streaks: newStreak,
-          corrects: isCorrect ? { increment: 1 } : undefined,
-        },
-        create: {
-          userId: user.id,
-          attempts: 1,
-          attemptsToday: 1,
-          streaks: isCorrect ? 1 : 0,
-          corrects: isCorrect ? 1 : 0,
-          timeouts: 0,
-        },
-      });
+        // Update quiz statistics (Type Two)
+        await prisma.quranQuizTypeTwoStats.upsert({
+          where: { userId: user.id },
+          update: {
+            attempts: { increment: 1 },
+            attemptsToday: { increment: 1 },
+            streaks: newStreak,
+            corrects: isCorrect ? { increment: 1 } : undefined,
+          },
+          create: {
+            userId: user.id,
+            attempts: 1,
+            attemptsToday: 1,
+            streaks: isCorrect ? 1 : 0,
+            corrects: isCorrect ? 1 : 0,
+            timeouts: 0,
+          },
+        });
+      } catch (dbError) {
+        console.error("Database update error:", dbError.message);
+      }
 
       // Create result embed
       const resultEmbed = new EmbedBuilder()
@@ -326,132 +381,201 @@ export async function execute(interaction) {
         disabledFalseButton
       );
 
-      await interaction.editReply({
-        embeds: [resultEmbed],
-        components: [disabledRow],
-        files: [attachment1],
-      });
-
-      collector.stop();
-    });
-
-    collector.on("end", async (collected) => {
-      if (collected.size === 0) {
-        // Timeout - apply XP penalty and update stats
-        const timeoutXpPenalty = -1;
-        const newXP = Math.max(
-          0,
-          (user.experience?.experience || 0) + timeoutXpPenalty
-        );
-        const newLevel = Math.floor(newXP / 100) + 1;
-
-        // Update user experience with timeout penalty
-        await prisma.userExperience.upsert({
-          where: { userId: user.id },
-          update: {
-            experience: newXP,
-          },
-          create: {
-            userId: user.id,
-            experience: newXP,
-          },
-        });
-
-        // Update timeout stats
-        await prisma.quranQuizTypeTwoStats.upsert({
-          where: { userId: user.id },
-          update: {
-            attempts: { increment: 1 },
-            attemptsToday: { increment: 1 },
-            timeouts: { increment: 1 },
-            streaks: 0, // Reset streak on timeout
-          },
-          create: {
-            userId: user.id,
-            attempts: 1,
-            attemptsToday: 1,
-            corrects: 0,
-            timeouts: 1,
-            streaks: 0,
-          },
-        });
-
-        // Timeout - no answer given
-        const timeoutEmbed = new EmbedBuilder()
-          .setTitle("⏰ Time's Up!")
-          .setDescription(
-            `Time ran out! The correct answer was **${
-              isFirstBeforeSecond ? "TRUE" : "FALSE"
-            }**.`
-          )
-          .setColor(0xffa500)
-          .addFields(
-            {
-              name: "📍 Correct Order",
-              value:
-                `**First verse:** ${verse1.verse_key} (Page ${verse1.page_number})\n` +
-                `**Second verse:** ${verse2.verse_key} (Page ${verse2.page_number})\n\n` +
-                `The first verse ${
-                  isFirstBeforeSecond ? "**comes before**" : "**comes after**"
-                } the second verse.`,
-              inline: false,
-            },
-            {
-              name: "💫 XP Penalty",
-              value: `${timeoutXpPenalty} XP\nTotal: ${newXP} XP (Level ${newLevel})`,
-              inline: true,
-            },
-            {
-              name: "💡 Try Again",
-              value: "Use `/ayah-order-quiz` to test your knowledge again!",
-              inline: false,
-            }
-          )
-          .setTimestamp();
-
-        // Disable all buttons and show correct answer
-        const disabledTrueButton = new ButtonBuilder()
-          .setCustomId("order_quiz_true")
-          .setLabel("✅ TRUE - First comes BEFORE second")
-          .setStyle(
-            isFirstBeforeSecond ? ButtonStyle.Success : ButtonStyle.Secondary
-          )
-          .setDisabled(true);
-
-        const disabledFalseButton = new ButtonBuilder()
-          .setCustomId("order_quiz_false")
-          .setLabel("❌ FALSE - First comes AFTER second")
-          .setStyle(
-            !isFirstBeforeSecond ? ButtonStyle.Success : ButtonStyle.Secondary
-          )
-          .setDisabled(true);
-
-        const disabledRow = new ActionRowBuilder().addComponents(
-          disabledTrueButton,
-          disabledFalseButton
-        );
-
-        await interaction.editReply({
-          embeds: [timeoutEmbed],
+      try {
+        await safeEditReply(interaction, {
+          embeds: [resultEmbed],
           components: [disabledRow],
           files: [attachment1],
         });
+      } catch (replyError) {
+        console.error("Error updating quiz result:", replyError.message);
+      }
+
+      collector.stop("answered");
+    });
+
+    collector.on("end", async (collected, reason) => {
+      try {
+        if (collected.size === 0 && reason !== "expired") {
+          // Timeout - apply XP penalty and update stats
+          const timeoutXpPenalty = -1;
+          const newXP = Math.max(
+            0,
+            (user.experience?.experience || 0) + timeoutXpPenalty
+          );
+          const newLevel = Math.floor(newXP / 100) + 1;
+
+          try {
+            // Update user experience with timeout penalty
+            await prisma.userExperience.upsert({
+              where: { userId: user.id },
+              update: {
+                experience: newXP,
+              },
+              create: {
+                userId: user.id,
+                experience: newXP,
+              },
+            });
+
+            // Update timeout stats
+            await prisma.quranQuizTypeTwoStats.upsert({
+              where: { userId: user.id },
+              update: {
+                attempts: { increment: 1 },
+                attemptsToday: { increment: 1 },
+                timeouts: { increment: 1 },
+                streaks: 0, // Reset streak on timeout
+              },
+              create: {
+                userId: user.id,
+                attempts: 1,
+                attemptsToday: 1,
+                corrects: 0,
+                timeouts: 1,
+                streaks: 0,
+              },
+            });
+          } catch (dbError) {
+            console.error("Database timeout update error:", dbError.message);
+          }
+
+          // Timeout - no answer given
+          const timeoutEmbed = new EmbedBuilder()
+            .setTitle("⏰ Time's Up!")
+            .setDescription(
+              `Time ran out! The correct answer was **${
+                isFirstBeforeSecond ? "TRUE" : "FALSE"
+              }**.`
+            )
+            .setColor(0xffa500)
+            .addFields(
+              {
+                name: "📍 Correct Order",
+                value:
+                  `**First verse:** ${verse1.verse_key} (Page ${verse1.page_number})\n` +
+                  `**Second verse:** ${verse2.verse_key} (Page ${verse2.page_number})\n\n` +
+                  `The first verse ${
+                    isFirstBeforeSecond ? "**comes before**" : "**comes after**"
+                  } the second verse.`,
+                inline: false,
+              },
+              {
+                name: "💫 XP Penalty",
+                value: `${timeoutXpPenalty} XP\nTotal: ${newXP} XP (Level ${newLevel})`,
+                inline: true,
+              },
+              {
+                name: "💡 Try Again",
+                value: "Use `/ayah-order-quiz` to test your knowledge again!",
+                inline: false,
+              }
+            )
+            .setTimestamp();
+
+          // Disable all buttons and show correct answer
+          const disabledTrueButton = new ButtonBuilder()
+            .setCustomId("order_quiz_true")
+            .setLabel("✅ TRUE - First comes BEFORE second")
+            .setStyle(
+              isFirstBeforeSecond ? ButtonStyle.Success : ButtonStyle.Secondary
+            )
+            .setDisabled(true);
+
+          const disabledFalseButton = new ButtonBuilder()
+            .setCustomId("order_quiz_false")
+            .setLabel("❌ FALSE - First comes AFTER second")
+            .setStyle(
+              !isFirstBeforeSecond ? ButtonStyle.Success : ButtonStyle.Secondary
+            )
+            .setDisabled(true);
+
+          const disabledRow = new ActionRowBuilder().addComponents(
+            disabledTrueButton,
+            disabledFalseButton
+          );
+
+          try {
+            await safeEditReply(interaction, {
+              embeds: [timeoutEmbed],
+              components: [disabledRow],
+              files: [attachment1],
+            });
+          } catch (timeoutReplyError) {
+            console.error(
+              "Error sending timeout message:",
+              timeoutReplyError.message
+            );
+          }
+        } else if (reason === "expired") {
+          console.log("Quiz collector expired due to interaction timeout");
+        }
+      } catch (endError) {
+        console.error("Error in collector end handler:", endError.message);
       }
     });
   } catch (error) {
     console.error("Error in ayah order quiz:", error);
 
-    const errorEmbed = new EmbedBuilder()
-      .setTitle("❌ Quiz Error")
-      .setDescription("Failed to load quiz question. Please try again later.")
-      .setColor(0xff6b6b)
-      .setTimestamp();
+    // Only try to respond if we haven't already responded
+    if (!interaction.replied && !interaction.deferred) {
+      try {
+        await interaction.reply({
+          content:
+            "❌ An error occurred while loading the quiz. Please try again.",
+          ephemeral: true,
+        });
+      } catch (replyError) {
+        console.error("Failed to send error reply:", replyError.message);
+      }
+    } else {
+      try {
+        const errorEmbed = new EmbedBuilder()
+          .setTitle("❌ Quiz Error")
+          .setDescription(
+            "Failed to load quiz question. Please try again later."
+          )
+          .setColor(0xff6b6b)
+          .setTimestamp();
 
-    await interaction.editReply({ embeds: [errorEmbed] });
+        await safeEditReply(interaction, { embeds: [errorEmbed] });
+      } catch (editError) {
+        console.error("Failed to edit reply with error:", editError.message);
+      }
+    }
   } finally {
-    await quranVerses.disconnect();
-    await quranChapters.disconnect();
-    await prisma.$disconnect();
+    try {
+      await quranVerses.disconnect();
+      await quranChapters.disconnect();
+      await prisma.$disconnect();
+    } catch (cleanupError) {
+      console.error("Error during cleanup:", cleanupError.message);
+    }
+  }
+}
+
+// Helper function to safely edit replies
+async function safeEditReply(interaction, options) {
+  try {
+    if (interaction.deferred || interaction.replied) {
+      return await interaction.editReply(options);
+    } else {
+      return await interaction.reply(options);
+    }
+  } catch (error) {
+    console.error("Error in safeEditReply:", error.message);
+
+    // If it's an API error, don't throw but log it
+    if (
+      error.code === 40060 ||
+      error.code === "InteractionNotReplied" ||
+      error.code === 10062
+    ) {
+      console.log("Interaction state issue, continuing execution");
+      return null;
+    }
+
+    throw error;
   }
 }
 
