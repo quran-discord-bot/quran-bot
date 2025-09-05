@@ -2,6 +2,13 @@
 
 All notable changes to this project will be documented in this file. See [standard-version](https://github.com/conventional-changelog/standard-version) for commit guidelines.
 
+### [1.4.8](https://github.com/runsdev/discord-bot/compare/v1.4.7...v1.4.8) (2025-09-05)
+
+
+### Features
+
+* **docs:** add placeholder ([94317e8](https://github.com/runsdev/discord-bot/commit/94317e88c61356a814fc5866a0ad8e93a6f6a4a9))
+
 ### [1.4.7](https://github.com/runsdev/discord-bot/compare/v1.4.6...v1.4.7) (2025-09-05)
 
 
