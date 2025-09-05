@@ -2,6 +2,13 @@
 
 All notable changes to this project will be documented in this file. See [standard-version](https://github.com/conventional-changelog/standard-version) for commit guidelines.
 
+### [1.4.7](https://github.com/runsdev/discord-bot/compare/v1.4.6...v1.4.7) (2025-09-05)
+
+
+### Features
+
+* **docker:** finalize image and compose ([7102577](https://github.com/runsdev/discord-bot/commit/71025773eb4297988d9d8935f31b9f6358434278))
+
 ### [1.4.6](https://github.com/runsdev/discord-bot/compare/v1.4.5...v1.4.6) (2025-09-04)
 
 
