@@ -2,6 +2,13 @@
 
 All notable changes to this project will be documented in this file. See [standard-version](https://github.com/conventional-changelog/standard-version) for commit guidelines.
 
+### [1.4.10](https://github.com/runsdev/discord-bot/compare/v1.4.9...v1.4.10) (2025-09-06)
+
+
+### Features
+
+* **docker:** add multiplatform support ([438b2b1](https://github.com/runsdev/discord-bot/commit/438b2b1d903b2e7c32e5f292809318f5bd4eaa7e))
+
 ### [1.4.9](https://github.com/runsdev/discord-bot/compare/v1.4.8...v1.4.9) (2025-09-06)
 
 
