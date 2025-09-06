@@ -2,6 +2,13 @@
 
 All notable changes to this project will be documented in this file. See [standard-version](https://github.com/conventional-changelog/standard-version) for commit guidelines.
 
+### [1.4.9](https://github.com/runsdev/discord-bot/compare/v1.4.8...v1.4.9) (2025-09-06)
+
+
+### Features
+
+* **quiz:** added translation quiz ([cf56023](https://github.com/runsdev/discord-bot/commit/cf5602338b51c49fc29b50e483ca521aea3eb514))
+
 ### [1.4.8](https://github.com/runsdev/discord-bot/compare/v1.4.7...v1.4.8) (2025-09-05)
 
 
