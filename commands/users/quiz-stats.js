@@ -5,13 +5,22 @@ const prisma = new PrismaClient();
 
 export const data = new SlashCommandBuilder()
   .setName("quiz-stats")
-  .setDescription("View your detailed Quran quiz statistics and performance");
+  .setDescription("View detailed Quran quiz statistics and performance")
+  .addUserOption((option) =>
+    option
+      .setName("user")
+      .setDescription("View another user's quiz statistics (optional)")
+      .setRequired(false)
+  );
 
 export async function execute(interaction) {
   try {
     await interaction.deferReply();
 
-    const userId = interaction.user.id;
+    const targetUser = interaction.options.getUser("user");
+    const userId = targetUser ? targetUser.id : interaction.user.id;
+    const isViewingOwnStats =
+      !targetUser || targetUser.id === interaction.user.id;
 
     // Get user with all quiz stats
     const user = await prisma.user.findUnique({
@@ -20,14 +29,18 @@ export async function execute(interaction) {
         experience: true,
         quizStatsTypeOne: true,
         quizStatsTypeTwo: true,
+        quizStatsTypeThree: true,
+        quizStatsTypeFour: true,
       },
     });
 
     if (!user) {
       const embed = new EmbedBuilder()
-        .setTitle("🚫 Registration Required")
+        .setTitle("🚫 User Not Found")
         .setDescription(
-          "You need to register first to view your quiz statistics!"
+          isViewingOwnStats
+            ? "You need to register first to view your quiz statistics!"
+            : `${targetUser.displayName} is not registered yet.`
         )
         .setColor(0xff6b6b)
         .addFields({
@@ -68,10 +81,33 @@ export async function execute(interaction) {
         ? ((typeTwoCorrects / typeTwoAttempts) * 100).toFixed(1)
         : "0.0";
 
+    // Type Three Stats (Missing Words Quiz)
+    const typeThreeStats = user.quizStatsTypeThree;
+    const typeThreeAttempts = typeThreeStats?.attempts || 0;
+    const typeThreeCorrects = typeThreeStats?.corrects || 0;
+    const typeThreeTimeouts = typeThreeStats?.timeouts || 0;
+    const typeThreeAccuracy =
+      typeThreeAttempts > 0
+        ? ((typeThreeCorrects / typeThreeAttempts) * 100).toFixed(1)
+        : "0.0";
+
+    // Type Four Stats (Translation Quiz)
+    const typeFourStats = user.quizStatsTypeFour;
+    const typeFourAttempts = typeFourStats?.attempts || 0;
+    const typeFourCorrects = typeFourStats?.corrects || 0;
+    const typeFourTimeouts = typeFourStats?.timeouts || 0;
+    const typeFourAccuracy =
+      typeFourAttempts > 0
+        ? ((typeFourCorrects / typeFourAttempts) * 100).toFixed(1)
+        : "0.0";
+
     // Overall Stats
-    const totalAttempts = typeOneAttempts + typeTwoAttempts;
-    const totalCorrects = typeOneCorrects + typeTwoCorrects;
-    const totalTimeouts = typeOneTimeouts + typeTwoTimeouts;
+    const totalAttempts =
+      typeOneAttempts + typeTwoAttempts + typeThreeAttempts + typeFourAttempts;
+    const totalCorrects =
+      typeOneCorrects + typeTwoCorrects + typeThreeCorrects + typeFourCorrects;
+    const totalTimeouts =
+      typeOneTimeouts + typeTwoTimeouts + typeThreeTimeouts + typeFourTimeouts;
     const overallAccuracy =
       totalAttempts > 0
         ? ((totalCorrects / totalAttempts) * 100).toFixed(1)
@@ -95,10 +131,11 @@ export async function execute(interaction) {
       skillColor = 0x9c88ff;
     }
 
+    const displayUser = targetUser || interaction.user;
     const embed = new EmbedBuilder()
       .setTitle("📊 Quiz Statistics Dashboard")
       .setDescription(
-        `**${interaction.user.displayName}'s Quran Quiz Performance**\n` +
+        `**${displayUser.displayName}'s Quran Quiz Performance**\n` +
           `*Skill Level: ${skillLevel}*`
       )
       .setColor(skillColor)
@@ -113,25 +150,43 @@ export async function execute(interaction) {
           inline: false,
         },
         {
-          name: "🧩 Chapter Quiz Stats",
+          name: "🧩 Chapter Quiz",
           value:
             typeOneAttempts > 0
               ? `**Attempts:** ${typeOneAttempts}\n` +
                 `**Correct:** ${typeOneCorrects}\n` +
-                `**Timeouts:** ${typeOneTimeouts}\n` +
                 `**Accuracy:** ${typeOneAccuracy}%`
-              : "No attempts yet\nUse `/quran-quiz` to start!",
+              : "No attempts yet",
           inline: true,
         },
         {
-          name: "📖 Order Quiz Stats",
+          name: "📖 Order Quiz",
           value:
             typeTwoAttempts > 0
               ? `**Attempts:** ${typeTwoAttempts}\n` +
                 `**Correct:** ${typeTwoCorrects}\n` +
-                `**Timeouts:** ${typeTwoTimeouts}\n` +
                 `**Accuracy:** ${typeTwoAccuracy}%`
-              : "No attempts yet\nUse `/ayah-order-quiz` to start!",
+              : "No attempts yet",
+          inline: true,
+        },
+        {
+          name: "🔍 Missing Words",
+          value:
+            typeThreeAttempts > 0
+              ? `**Attempts:** ${typeThreeAttempts}\n` +
+                `**Correct:** ${typeThreeCorrects}\n` +
+                `**Accuracy:** ${typeThreeAccuracy}%`
+              : "No attempts yet",
+          inline: true,
+        },
+        {
+          name: "🌟 Translation Quiz",
+          value:
+            typeFourAttempts > 0
+              ? `**Attempts:** ${typeFourAttempts}\n` +
+                `**Correct:** ${typeFourCorrects}\n` +
+                `**Accuracy:** ${typeFourAccuracy}%`
+              : "No attempts yet",
           inline: true,
         },
         {
@@ -139,18 +194,20 @@ export async function execute(interaction) {
           value:
             `**Current Level:** ${currentLevel}\n` +
             `**Total XP:** ${currentXP}\n` +
-            `**XP to Next Level:** ${xpForNextLevel}`,
+            (isViewingOwnStats
+              ? `**XP to Next Level:** ${xpForNextLevel}`
+              : ""),
           inline: false,
         }
       )
       .setFooter({
         text: `Account created: ${user.createdAt.toDateString()}`,
-        iconURL: interaction.user.displayAvatarURL(),
+        iconURL: displayUser.displayAvatarURL(),
       })
       .setTimestamp();
 
-    // Add performance tips based on stats
-    if (totalAttempts > 0) {
+    // Add performance tips only for viewing own stats
+    if (totalAttempts > 0 && isViewingOwnStats) {
       let tips = "";
 
       if (overallAccuracy < 50) {

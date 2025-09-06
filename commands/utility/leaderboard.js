@@ -22,7 +22,8 @@ export const data = new SlashCommandBuilder()
         { name: "Experience", value: "experience" },
         { name: "Quiz Type 1", value: "quiz1" },
         { name: "Quiz Type 2", value: "quiz2" },
-        { name: "Quiz Type 3", value: "quiz3" }
+        { name: "Quiz Type 3", value: "quiz3" },
+        { name: "Quiz Type 4", value: "quiz4" }
       )
   );
 
@@ -66,6 +67,13 @@ export async function execute(interaction) {
         userPosition = await getUserQuizTypeThreePosition(userId);
         title = "🔍 Quiz Type 3 Leaderboard";
         description = "Top users ranked by Missing Words Quiz accuracy";
+        break;
+
+      case "quiz4":
+        leaderboardData = await getQuizTypeFourLeaderboard();
+        userPosition = await getUserQuizTypeFourPosition(userId);
+        title = "🌟 Quiz Type 4 Leaderboard";
+        description = "Top users ranked by Translation Quiz accuracy";
         break;
     }
 
@@ -293,6 +301,37 @@ async function getQuizTypeThreeLeaderboard(page = 1, limit = 10) {
   });
 }
 
+async function getQuizTypeFourLeaderboard(page = 1, limit = 10) {
+  const skip = (page - 1) * limit;
+
+  return await prisma.user.findMany({
+    include: {
+      quizStatsTypeFour: true,
+    },
+    where: {
+      quizStatsTypeFour: {
+        attempts: {
+          gt: 0,
+        },
+      },
+    },
+    orderBy: [
+      {
+        quizStatsTypeFour: {
+          corrects: "desc",
+        },
+      },
+      {
+        quizStatsTypeFour: {
+          attempts: "asc",
+        },
+      },
+    ],
+    skip,
+    take: limit,
+  });
+}
+
 async function getLeaderboardPage(type, page) {
   switch (type) {
     case "experience":
@@ -303,6 +342,8 @@ async function getLeaderboardPage(type, page) {
       return await getQuizTypeTwoLeaderboard(page);
     case "quiz3":
       return await getQuizTypeThreeLeaderboard(page);
+    case "quiz4":
+      return await getQuizTypeFourLeaderboard(page);
     default:
       return await getExperienceLeaderboard(page);
   }
@@ -404,6 +445,30 @@ async function getUserQuizTypeThreePosition(discordId) {
   };
 }
 
+async function getUserQuizTypeFourPosition(discordId) {
+  const user = await prisma.user.findUnique({
+    where: { discordId },
+    include: { quizStatsTypeFour: true },
+  });
+
+  if (!user || !user.quizStatsTypeFour) return null;
+
+  const higherRanked = await prisma.user.count({
+    where: {
+      quizStatsTypeFour: {
+        corrects: {
+          gt: user.quizStatsTypeFour.corrects,
+        },
+      },
+    },
+  });
+
+  return {
+    position: higherRanked + 1,
+    user,
+  };
+}
+
 async function getTotalUsers(type) {
   switch (type) {
     case "experience":
@@ -438,6 +503,16 @@ async function getTotalUsers(type) {
       return await prisma.user.count({
         where: {
           quizStatsTypeThree: {
+            attempts: {
+              gt: 0,
+            },
+          },
+        },
+      });
+    case "quiz4":
+      return await prisma.user.count({
+        where: {
+          quizStatsTypeFour: {
             attempts: {
               gt: 0,
             },
@@ -498,6 +573,13 @@ async function createLeaderboardEmbed(
           ? ((stats.corrects / stats.attempts) * 100).toFixed(1)
           : 0;
       userInfo = `${stats.corrects}/${stats.attempts} • ${accuracy}% accuracy`;
+    } else if (type === "quiz4") {
+      const stats = user.quizStatsTypeFour;
+      const accuracy =
+        stats.attempts > 0
+          ? ((stats.corrects / stats.attempts) * 100).toFixed(1)
+          : 0;
+      userInfo = `${stats.corrects}/${stats.attempts} • ${accuracy}% accuracy`;
     }
 
     leaderboardText += `${medal} <@${user.discordId}>\n${userInfo}\n\n`;
@@ -534,6 +616,13 @@ async function createLeaderboardEmbed(
       userInfo = `${stats.corrects}/${stats.attempts} • ${accuracy}% accuracy`;
     } else if (type === "quiz3") {
       const stats = userPosition.user.quizStatsTypeThree;
+      const accuracy =
+        stats.attempts > 0
+          ? ((stats.corrects / stats.attempts) * 100).toFixed(1)
+          : 0;
+      userInfo = `${stats.corrects}/${stats.attempts} • ${accuracy}% accuracy`;
+    } else if (type === "quiz4") {
+      const stats = userPosition.user.quizStatsTypeFour;
       const accuracy =
         stats.attempts > 0
           ? ((stats.corrects / stats.attempts) * 100).toFixed(1)

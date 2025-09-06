@@ -7,6 +7,7 @@ import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { pathToFileURL } from "node:url";
 import { REST, Routes } from "discord.js";
+import { PrismaClient } from "./generated/prisma/index.js";
 
 // Load environment variables from .env file
 configDotenv();
@@ -16,6 +17,7 @@ const guildId = process.env.GUILD_ID;
 
 // Create a new client instance
 const client = new Client({ intents: [GatewayIntentBits.Guilds] });
+const prisma = new PrismaClient();
 
 client.commands = new Collection();
 
@@ -102,6 +104,46 @@ const rest = new REST().setToken(token);
     console.error(error);
   }
 })();
+
+// Clean up quiz queue on bot startup
+client.once("ready", async () => {
+  console.log(`Bot ${client.user.tag} is ready!`);
+
+  try {
+    // Delete all queue entries on bot startup
+    const deletedCount = await prisma.quranQuizQueue.deleteMany({});
+    console.log(
+      `Cleared ${deletedCount.count} entries from quiz queue on startup`
+    );
+
+    // Start scheduled cleanup for old queue entries (every 2 minutes)
+    setInterval(async () => {
+      try {
+        const twoMinutesAgo = new Date(Date.now() - 2 * 60 * 1000);
+        const deletedOldEntries = await prisma.quranQuizQueue.deleteMany({
+          where: {
+            createdAt: {
+              lt: twoMinutesAgo,
+            },
+          },
+        });
+
+        if (deletedOldEntries.count > 0) {
+          console.log(
+            `Cleaned up ${deletedOldEntries.count} old queue entries (older than 2 minutes)`
+          );
+        }
+      } catch (cleanupError) {
+        console.error(
+          "Error during scheduled queue cleanup:",
+          cleanupError.message
+        );
+      }
+    }, 2 * 60 * 1000); // Run every 2 minutes
+  } catch (error) {
+    console.error("Error during bot startup queue cleanup:", error.message);
+  }
+});
 
 // Log in to Discord with your client's token
 client.login(token);
