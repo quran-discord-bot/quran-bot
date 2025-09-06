@@ -5,7 +5,7 @@ services:
     build:
       context: .
       dockerfile: Dockerfile
-    image: discord-bot:production
+    image: discord-bot:latest
     container_name: discord-bot
     restart: unless-stopped
     environment:

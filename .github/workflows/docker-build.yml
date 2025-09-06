@@ -36,18 +36,29 @@ jobs:
             type=ref,event=tag
             type=raw,value=latest,enable={{is_default_branch}}
 
-      - name: Build Alpine image
+      - name: Build multi-platform Alpine image
         id: build
         uses: docker/build-push-action@v5
         with:
           context: .
           file: ./Dockerfile
+          platforms: linux/amd64,linux/arm64
           push: ${{ github.ref_type == 'tag' }}
           tags: ${{ github.ref_type == 'tag' && steps.meta.outputs.tags || 'discord-bot:alpine' }}
           labels: ${{ github.ref_type == 'tag' && steps.meta.outputs.labels || '' }}
-          outputs: ${{ github.ref_type != 'tag' && 'type=docker,dest=/tmp/discord-bot-alpine.tar' || '' }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
+
+      - name: Build single-platform image for testing (amd64 only)
+        if: github.ref_type != 'tag'
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          file: ./Dockerfile
+          platforms: linux/amd64
+          tags: discord-bot:alpine-test
+          outputs: type=docker,dest=/tmp/discord-bot-alpine.tar
+          cache-from: type=gha
 
       - name: Generate artifact attestation
         if: github.ref_type == 'tag'
@@ -70,15 +81,15 @@ jobs:
           docker load -i /tmp/discord-bot-alpine.tar
 
           # Test container can start (will fail on Discord connection but that's expected)
-          timeout 30s docker run --env-file .env discord-bot:alpine || true
+          timeout 30s docker run --env-file .env discord-bot:alpine-test || true
 
           echo "Container startup test completed"
 
       - name: Check image size
         if: github.ref_type != 'tag'
         run: |
-          echo "Image size for alpine:"
-          docker images discord-bot:alpine --format "table {{.Repository}}:{{.Tag}}\t{{.Size}}"
+          echo "Image size for alpine (amd64):"
+          docker images discord-bot:alpine-test --format "table {{.Repository}}:{{.Tag}}\t{{.Size}}"
 
       - name: Upload Docker image as artifact
         if: github.ref_type != 'tag'
@@ -87,12 +98,3 @@ jobs:
           name: discord-bot-alpine-image
           path: /tmp/discord-bot-alpine.tar
           retention-days: 30
-
-      - name: Upload binaries to release
-        uses: softprops/action-gh-release@v2
-        if: github.ref_type == 'tag'
-        with:
-          files: /tmp/discord-bot-alpine.tar
-          name: Discord Bot ${{ github.ref_name }}
-          generate_release_notes: true
-          token: ${{ secrets.GITHUB_TOKEN }}

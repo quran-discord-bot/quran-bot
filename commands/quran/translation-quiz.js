@@ -91,12 +91,24 @@ export async function execute(interaction) {
       console.error("Error adding user to queue:", queueError.message);
     }
 
-    // Get random verse
-    const verse = await quranVerses.getRandomVerse();
+    // Get random verse with longer glyph (>20 characters)
+    let verse;
+    let attempts = 0;
+    const maxAttempts = 10;
 
-    if (!verse) {
+    do {
+      verse = await quranVerses.getRandomVerse();
+      attempts++;
+    } while (
+      verse &&
+      verse.code_v2 &&
+      verse.code_v2.length <= 20 &&
+      attempts < maxAttempts
+    );
+
+    if (!verse || (verse.code_v2 && verse.code_v2.length <= 20)) {
       await safeEditReply(interaction, {
-        content: "❌ Failed to get quiz question. Please try again.",
+        content: "❌ Failed to get a suitable quiz question. Please try again.",
       });
       return;
     }

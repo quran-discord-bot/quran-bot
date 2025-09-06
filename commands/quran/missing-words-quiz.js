@@ -18,7 +18,7 @@ import QuranCanvas from "../../utility/Canvas/QuranCanvas.js";
 const prisma = new PrismaClient();
 
 export const data = new SlashCommandBuilder()
-  .setName("missing-ayah-words-quiz")
+  .setName("missing-words-quiz")
   .setDescription(
     "Test your Quran knowledge - identify the missing words from a verse!"
   );

@@ -61,6 +61,7 @@ QURAN_FOUNDATION_API_KEY=your_api_key_here
 
 - **Multi-stage build** for minimal image size
 - **Alpine Linux** base for security and size
+- **Multi-platform support** (amd64 + arm64)
 - **Non-root user** execution
 - **Health checks** included
 - **Resource limits** configured
@@ -183,4 +184,4 @@ If you encounter issues:
 3. Ensure Discord permissions are configured
 4. Review the container health status
 
-For additional help, check the main README or open an issue.
+For additional help, check the main README, [multi-platform documentation](DOCKER-MULTIPLATFORM.md), or open an issue.

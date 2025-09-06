@@ -641,6 +641,225 @@ class QuranCanvas {
   }
 
   /**
+   * Create a quiz canvas with a question glyph at the top and multiple choice options below
+   * @param {Object} options - Configuration options
+   * @param {string} options.questionGlyph - Arabic text/glyph for the question (code_v2)
+   * @param {number} options.questionPage - Page number for the question glyph font
+   * @param {Array} options.choices - Array of choice objects
+   * @param {string} options.choices[].glyph - Arabic text/glyph for the choice (code_v2)
+   * @param {number} options.choices[].page - Page number for the choice glyph font
+   * @param {string} options.version - Font version ("v1" or "v2", default: "v2")
+   * @param {number} options.width - Canvas width (default: 900)
+   * @param {number} options.height - Canvas height (default: 800)
+   * @param {number} options.questionFontSize - Font size for question (default: 40)
+   * @param {number} options.choiceFontSize - Font size for choices (default: 32)
+   * @param {string} options.colorScheme - Color scheme ("dark" or "light", default: "dark")
+   * @param {string} options.textAlign - Text alignment ("left", "center", "right", default: "right")
+   * @param {number} options.lineHeight - Line height multiplier (default: 1.4)
+   * @param {Object} options.padding - Padding {top, right, bottom, left} (default: {top: 60, right: 60, bottom: 60, left: 60})
+   * @param {number} options.questionSpacing - Space between question and choices (default: 80)
+   * @param {number} options.choiceSpacing - Space between choices (default: 50)
+   * @param {string} options.labelFont - Font family for choice labels (default: "Arial")
+   * @param {number} options.labelFontSize - Font size for choice labels (default: 28)
+   * @returns {Buffer} PNG image buffer
+   */
+  createQuizCanvas(options) {
+    const {
+      questionGlyph,
+      questionPage,
+      choices = [],
+      version = "v2",
+      width = 900,
+      height = 800,
+      questionFontSize = 40,
+      choiceFontSize = 32,
+      colorScheme = "dark",
+      textAlign = "right",
+      lineHeight = 1.4,
+      padding = { top: 60, right: 60, bottom: 60, left: 60 },
+      questionSpacing = 80,
+      choiceSpacing = 50,
+      labelFont = "Arial",
+      labelFontSize = 28,
+    } = options;
+
+    // Validate required parameters
+    if (!questionGlyph) {
+      throw new Error("Question glyph is required");
+    }
+
+    if (
+      !questionPage ||
+      !Number.isInteger(questionPage) ||
+      questionPage < 1 ||
+      questionPage > 604
+    ) {
+      throw new Error("Valid question page number (1-604) is required");
+    }
+
+    if (!choices || choices.length === 0) {
+      throw new Error("At least one choice is required");
+    }
+
+    // Validate version
+    if (!["v2"].includes(version)) {
+      throw new Error("Version must be 'v1' or 'v2'");
+    }
+
+    // Validate all choice pages
+    choices.forEach((choice, index) => {
+      if (!choice.glyph) {
+        throw new Error(`Choice ${index + 1} glyph is required`);
+      }
+      if (
+        !choice.page ||
+        !Number.isInteger(choice.page) ||
+        choice.page < 1 ||
+        choice.page > 604
+      ) {
+        throw new Error(
+          `Choice ${index + 1} requires valid page number (1-604)`
+        );
+      }
+    });
+
+    // Register fonts
+    const questionFontFamily = this.registerPageFont(questionPage, version);
+    const choiceFontFamilies = choices.map((choice) =>
+      this.registerPageFont(choice.page, version)
+    );
+
+    // Create canvas
+    const canvas = createCanvas(width, height);
+    const ctx = canvas.getContext("2d");
+
+    // Fill background
+    ctx.fillStyle = colorScheme === "dark" ? "#1a1a1a" : "#ffffff";
+    ctx.fillRect(0, 0, width, height);
+
+    // Set text color
+    const textColor = colorScheme === "dark" ? "#ffffff" : "#000000";
+    const labelColor = colorScheme === "dark" ? "#cccccc" : "#333333";
+
+    // Configure text rendering
+    ctx.textBaseline = "top";
+    ctx.fillStyle = textColor;
+
+    // Calculate content area
+    const contentWidth = width - padding.left - padding.right;
+    let currentY = padding.top;
+
+    // Render question glyph
+    ctx.font = `${questionFontSize}px ${questionFontFamily}`;
+    ctx.textAlign = textAlign;
+
+    // Wrap question text
+    const questionLines = this.wrapText(
+      ctx,
+      questionGlyph,
+      questionFontFamily,
+      questionFontSize,
+      contentWidth
+    );
+
+    // Calculate question text position
+    questionLines.forEach((line, index) => {
+      let questionX;
+      switch (textAlign) {
+        case "center":
+          questionX = width / 2;
+          break;
+        case "right":
+          questionX = width - padding.right;
+          break;
+        default: // left
+          questionX = padding.left;
+      }
+
+      const questionY = currentY + index * questionFontSize * lineHeight;
+
+      // Render question line
+      ctx.fillStyle = textColor;
+      ctx.fillText(line, questionX, questionY);
+
+      // Add subtle stroke for better visibility
+      ctx.strokeStyle = textColor;
+      ctx.lineWidth = 0.5;
+      ctx.strokeText(line, questionX, questionY);
+    });
+
+    // Update Y position after question
+    currentY +=
+      questionLines.length * questionFontSize * lineHeight + questionSpacing;
+
+    // Render choices
+    choices.forEach((choice, index) => {
+      const choiceLetter = String.fromCharCode(65 + index); // A, B, C, D, E...
+      const choiceFontFamily = choiceFontFamilies[index];
+
+      // Set up choice font
+      ctx.font = `${choiceFontSize}px ${choiceFontFamily}`;
+
+      // Wrap choice text
+      const choiceLines = this.wrapText(
+        ctx,
+        choice.glyph,
+        choiceFontFamily,
+        choiceFontSize,
+        contentWidth - 80 // Leave space for choice label
+      );
+
+      // Render choice label (A, B, C, etc.)
+      ctx.font = `bold ${labelFontSize}px ${labelFont}`;
+      ctx.fillStyle = labelColor;
+      ctx.textAlign = "left";
+
+      const labelX = padding.left;
+      const labelY = currentY;
+      ctx.fillText(`${choiceLetter}.`, labelX, labelY);
+
+      // Render choice glyph
+      ctx.font = `${choiceFontSize}px ${choiceFontFamily}`;
+      ctx.fillStyle = textColor;
+      ctx.textAlign = textAlign;
+
+      choiceLines.forEach((line, lineIndex) => {
+        let choiceX;
+        switch (textAlign) {
+          case "center":
+            choiceX = width / 2;
+            break;
+          case "right":
+            choiceX = width - padding.right;
+            break;
+          default: // left
+            choiceX = padding.left + 80; // Offset for choice label
+        }
+
+        const choiceY = currentY + lineIndex * choiceFontSize * lineHeight;
+
+        // Render choice line
+        ctx.fillText(line, choiceX, choiceY);
+
+        // Add subtle stroke for better visibility
+        ctx.strokeStyle = textColor;
+        ctx.lineWidth = 0.5;
+        ctx.strokeText(line, choiceX, choiceY);
+      });
+
+      // Update Y position for next choice
+      currentY +=
+        Math.max(
+          choiceLines.length * choiceFontSize * lineHeight,
+          labelFontSize
+        ) + choiceSpacing;
+    });
+
+    // Return image buffer
+    return canvas.toBuffer("image/png");
+  }
+
+  /**
    * Get all registered font families
    * @returns {string[]} Array of registered font family names
    */
