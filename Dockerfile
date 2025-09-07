@@ -48,38 +48,13 @@ COPY db ./db
 COPY utility ./utility
 COPY index.js .
 COPY package*.json ./
+COPY docker-entrypoint.sh ./
 
 # Set environment variable for production
 ENV NODE_ENV=production
 
-# Create database initialization script with better error handling
-RUN echo '#!/bin/sh' > docker-entrypoint.sh && \
-    echo 'set -e' >> docker-entrypoint.sh && \
-    echo '' >> docker-entrypoint.sh && \
-    echo '# Set OpenSSL configuration for Prisma' >> docker-entrypoint.sh && \
-    echo 'export OPENSSL_CONF=/etc/ssl/openssl.cnf' >> docker-entrypoint.sh && \
-    echo 'export PRISMA_QUERY_ENGINE_BINARY=/app/node_modules/prisma/query-engine-linux-musl' >> docker-entrypoint.sh && \
-    echo '' >> docker-entrypoint.sh && \
-    echo '# Initialize database if needed' >> docker-entrypoint.sh && \
-    echo 'echo "🔄 Checking database..."' >> docker-entrypoint.sh && \
-    echo 'if [ ! -f "db/prod.db" ]; then' >> docker-entrypoint.sh && \
-    echo '  echo "📦 Database not found, creating database and applying schema..."' >> docker-entrypoint.sh && \
-    echo '  npx prisma db push --force-reset || {' >> docker-entrypoint.sh && \
-    echo '    echo "❌ Schema push failed, trying alternative approach..."' >> docker-entrypoint.sh && \
-    echo '    npx prisma migrate reset --force || echo "⚠️ Migration reset failed"' >> docker-entrypoint.sh && \
-    echo '  }' >> docker-entrypoint.sh && \
-    echo 'else' >> docker-entrypoint.sh && \
-    echo '  echo "✅ Database exists, ensuring schema is current..."' >> docker-entrypoint.sh && \
-    echo '  npx prisma db push || {' >> docker-entrypoint.sh && \
-    echo '    echo "⚠️ Schema push failed, trying migrations..."' >> docker-entrypoint.sh && \
-    echo '    npx prisma migrate deploy || echo "⚠️ Migration failed, continuing..."' >> docker-entrypoint.sh && \
-    echo '  }' >> docker-entrypoint.sh && \
-    echo 'fi' >> docker-entrypoint.sh && \
-    echo '' >> docker-entrypoint.sh && \
-    echo '# Start the Discord bot' >> docker-entrypoint.sh && \
-    echo 'echo "🤖 Starting Discord Bot..."' >> docker-entrypoint.sh && \
-    echo 'exec node index.js' >> docker-entrypoint.sh && \
-    chmod +x docker-entrypoint.sh
+# Make entrypoint script executable
+RUN chmod +x docker-entrypoint.sh
 
 # Switch to a non-root user for better security
 USER node

@@ -2,10 +2,7 @@ version: "3.8"
 
 services:
   discord-bot:
-    build:
-      context: .
-      dockerfile: Dockerfile
-    image: discord-bot:latest
+    image: ghcr.io/runsdev/discord-bot:latest
     container_name: discord-bot
     restart: unless-stopped
     environment:
