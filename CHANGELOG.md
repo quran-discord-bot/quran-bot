@@ -2,6 +2,13 @@
 
 All notable changes to this project will be documented in this file. See [standard-version](https://github.com/conventional-changelog/standard-version) for commit guidelines.
 
+### [1.4.17](https://github.com/runsdev/discord-bot/compare/v1.4.16...v1.4.17) (2025-09-07)
+
+
+### Features
+
+* **docker:** added native pkgs ([eb694a8](https://github.com/runsdev/discord-bot/commit/eb694a8c74509f0510730af612206dfd3fdd53e1))
+
 ### [1.4.16](https://github.com/runsdev/discord-bot/compare/v1.4.15...v1.4.16) (2025-09-07)
 
 
