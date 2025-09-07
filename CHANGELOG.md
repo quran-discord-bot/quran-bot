@@ -2,6 +2,14 @@
 
 All notable changes to this project will be documented in this file. See [standard-version](https://github.com/conventional-changelog/standard-version) for commit guidelines.
 
+### [1.4.20](https://github.com/runsdev/discord-bot/compare/v1.4.19...v1.4.20) (2025-09-07)
+
+
+### Features
+
+* **commands:** add onboarding for new users ([a54296b](https://github.com/runsdev/discord-bot/commit/a54296be6df748c56e9db67d0b11d6279740308f))
+* **github actions:** edit on push build ([d304f0d](https://github.com/runsdev/discord-bot/commit/d304f0db094f5c14f9c713ec0718c4613c607e0b))
+
 ### [1.4.19](https://github.com/runsdev/discord-bot/compare/v1.4.18...v1.4.19) (2025-09-07)
 
 
