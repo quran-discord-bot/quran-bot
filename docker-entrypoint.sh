@@ -7,6 +7,7 @@ export OPENSSL_CONF=/etc/ssl/openssl.cnf
 # Detect architecture and set appropriate Prisma binary
 ARCH=$(uname -m)
 if [ "$ARCH" = "aarch64" ] || [ "$ARCH" = "arm64" ]; then
+  apt-get update -y && apt-get install -y openssl
   export PRISMA_QUERY_ENGINE_BINARY=/app/node_modules/prisma/libquery_engine-linux-musl-arm64-openssl-3.0.x.so.node
 else
   export PRISMA_QUERY_ENGINE_BINARY=/app/node_modules/prisma/query-engine-linux-musl
