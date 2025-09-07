@@ -47,9 +47,7 @@ COPY docker-entrypoint.sh ./
 ENV NODE_ENV=production
 
 # Make entrypoint script executable and set up permissions
-RUN chmod +x docker-entrypoint.sh && \
-    mkdir -p db && \
-    # chown -R node:node /app
+RUN chmod +x docker-entrypoint.sh
 
 # Switch to a non-root user for better security
 # USER node
