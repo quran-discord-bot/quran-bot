@@ -37,6 +37,7 @@ jobs:
             type=raw,value=latest,enable={{is_default_branch}}
 
       - name: Build multi-platform Alpine image
+        if: github.ref_type == 'tag'
         id: build
         uses: docker/build-push-action@v5
         with:
