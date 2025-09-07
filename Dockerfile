@@ -13,7 +13,8 @@ COPY package*.json ./
 
 # Install ALL dependencies (including dev for Prisma) and build
 # We need dev dependencies here for `prisma generate`
-RUN npm install --omit=dev --ignore-scripts && \
+# RUN npm install --omit=dev --ignore-scripts && \
+RUN npm install && \
     npm cache clean --force
 
 # Copy source code and Prisma schema

@@ -49,17 +49,6 @@ jobs:
           cache-from: type=gha
           cache-to: type=gha,mode=max
 
-      - name: Build single-platform image for testing (amd64 only)
-        if: github.ref_type != 'tag'
-        uses: docker/build-push-action@v5
-        with:
-          context: .
-          file: ./Dockerfile
-          platforms: linux/amd64
-          tags: discord-bot:alpine-test
-          outputs: type=docker,dest=/tmp/discord-bot-alpine.tar
-          cache-from: type=gha
-
       - name: Generate artifact attestation
         if: github.ref_type == 'tag'
         uses: actions/attest-build-provenance@v2
@@ -90,11 +79,3 @@ jobs:
         run: |
           echo "Image size for alpine (amd64):"
           docker images discord-bot:alpine-test --format "table {{.Repository}}:{{.Tag}}\t{{.Size}}"
-
-      - name: Upload Docker image as artifact
-        if: github.ref_type != 'tag'
-        uses: actions/upload-artifact@v4
-        with:
-          name: discord-bot-alpine-image
-          path: /tmp/discord-bot-alpine.tar
-          retention-days: 30
