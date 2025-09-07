@@ -4,7 +4,7 @@
 FROM node:18-alpine AS builder
 
 # Install build tools needed to compile native modules from source
-RUN apk add --no-cache build-base python3
+RUN apk add --no-cache build-base python3 cargo g++ make
 
 WORKDIR /app
 
