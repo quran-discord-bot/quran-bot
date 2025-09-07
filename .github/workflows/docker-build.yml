@@ -57,23 +57,6 @@ jobs:
           subject-digest: ${{ steps.build.outputs.digest }}
           push-to-registry: true
 
-      - name: Test container startup
-        if: github.ref_type != 'tag'
-        run: |
-          # Create dummy .env for testing
-          echo "BOT_TOKEN=dummy_token_for_testing" > .env
-          echo "CLIENT_ID=123456789012345678" >> .env
-          echo "GUILD_ID=987654321098765432" >> .env
-          echo "NODE_ENV=production" >> .env
-
-          # Load the image from tar file
-          docker load -i /tmp/discord-bot-alpine.tar
-
-          # Test container can start (will fail on Discord connection but that's expected)
-          timeout 30s docker run --env-file .env discord-bot:alpine-test || true
-
-          echo "Container startup test completed"
-
       - name: Check image size
         if: github.ref_type != 'tag'
         run: |

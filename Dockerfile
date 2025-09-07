@@ -1,10 +1,13 @@
 # =========================================================================================
 # BUILDER STAGE: Install dependencies and compile native modules
 # =========================================================================================
-FROM node:18-alpine AS builder
+FROM node:18-slim AS builder
+
+# Use Debian's package manager (apt-get) instead of Alpine's (apk)
+RUN apt-get update && apt-get install -y --no-install-recommends build-essential python3
 
 # Install build tools needed to compile native modules from source
-RUN apk add --no-cache build-base python3 cargo g++ make
+RUN apt-get install -y --no-install-recommends cargo g++ make
 
 WORKDIR /app
 
@@ -28,7 +31,7 @@ RUN npx prisma generate
 # =========================================================================================
 # PRODUCTION STAGE: Create the final, small image
 # =========================================================================================
-FROM node:18-alpine AS production
+FROM node:18-slim AS production
 
 WORKDIR /app
 
