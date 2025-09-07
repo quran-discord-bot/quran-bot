@@ -2,6 +2,13 @@
 
 All notable changes to this project will be documented in this file. See [standard-version](https://github.com/conventional-changelog/standard-version) for commit guidelines.
 
+### [1.4.16](https://github.com/runsdev/discord-bot/compare/v1.4.15...v1.4.16) (2025-09-07)
+
+
+### Features
+
+* **docker:** remove external entrypoint ([0a4204d](https://github.com/runsdev/discord-bot/commit/0a4204da99a2907f3d13cafae083a9a573aa9454))
+
 ### [1.4.15](https://github.com/runsdev/discord-bot/compare/v1.4.14...v1.4.15) (2025-09-07)
 
 
