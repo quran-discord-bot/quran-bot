@@ -2,6 +2,13 @@
 
 All notable changes to this project will be documented in this file. See [standard-version](https://github.com/conventional-changelog/standard-version) for commit guidelines.
 
+### [1.4.19](https://github.com/runsdev/discord-bot/compare/v1.4.18...v1.4.19) (2025-09-07)
+
+
+### Features
+
+* **docker:** add openssl ([e2a7070](https://github.com/runsdev/discord-bot/commit/e2a7070529d9f1823da5507db2b6d1e41365cb20))
+
 ### [1.4.18](https://github.com/runsdev/discord-bot/compare/v1.4.17...v1.4.18) (2025-09-07)
 
 
