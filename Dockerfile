@@ -3,6 +3,9 @@
 # =========================================================================================
 FROM node:18-alpine AS builder
 
+# Install build tools needed to compile native modules from source
+RUN apk add --no-cache build-base python3
+
 WORKDIR /app
 
 # Copy only package files to leverage Docker's layer caching
