@@ -2,6 +2,13 @@
 
 All notable changes to this project will be documented in this file. See [standard-version](https://github.com/conventional-changelog/standard-version) for commit guidelines.
 
+### [1.5.4](https://github.com/runsdev/discord-bot/compare/v1.5.3...v1.5.4) (2025-09-08)
+
+
+### Features
+
+* add workflow ([a6ef1d6](https://github.com/runsdev/discord-bot/commit/a6ef1d6fcc73593af98306eda76ac9aa27281634))
+
 ### [1.5.3](https://github.com/runsdev/discord-bot/compare/v1.5.2...v1.5.3) (2025-09-08)
 
 ### [1.5.2](https://github.com/runsdev/discord-bot/compare/v1.5.1...v1.5.2) (2025-09-08)
