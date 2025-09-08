@@ -2,6 +2,13 @@
 
 All notable changes to this project will be documented in this file. See [standard-version](https://github.com/conventional-changelog/standard-version) for commit guidelines.
 
+### [1.5.1](https://github.com/runsdev/discord-bot/compare/v1.5.0...v1.5.1) (2025-09-08)
+
+
+### Features
+
+* **mongodb:** migrate to mongodb Atlas ([dda7004](https://github.com/runsdev/discord-bot/commit/dda700439b786c38624b01035ada5278d15bfab9))
+
 ## [1.5.0](https://github.com/runsdev/discord-bot/compare/v1.4.20...v1.5.0) (2025-09-08)
 
 
