@@ -255,14 +255,6 @@ export default function Home() {
                       Match verses with translations
                     </p>
                   </div>
-                  <div className="bg-white dark:bg-gray-800 p-4 rounded-lg">
-                    <code className="text-blue-600 font-mono">
-                      /random-ayah
-                    </code>
-                    <p className="text-sm text-gray-600 dark:text-gray-300 mt-1">
-                      Get a random verse for reflection
-                    </p>
-                  </div>
                 </div>
               </div>
 
