@@ -1,0 +1,135 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+// Looking for ways to speed up your queries, or scale easily with your serverless or edge functions?
+// Try Prisma Accelerate: https://pris.ly/cli/accelerate-init
+
+generator client {
+  provider      = "prisma-client-js"
+  output        = "../generated/prisma"
+  binaryTargets = ["native", "linux-musl-openssl-3.0.x", "linux-musl-arm64-openssl-3.0.x"]
+}
+
+datasource db {
+  provider = "mongodb"
+  url      = env("DATABASE_URL")
+}
+
+model QuranApiToken {
+  id         String   @id @default(auto()) @map("_id") @db.ObjectId
+  token      String
+  expiresAt  DateTime
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  @@map("quran_api_tokens")
+}
+
+model User {
+  id        String @id @default(auto()) @map("_id") @db.ObjectId
+  discordId String @unique
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  settings  UserSetting?
+  experience UserExperience?
+  streak    UserStreak?
+  quizStatsTypeOne QuranQuizTypeOneStats?
+  quizStatsTypeTwo QuranQuizTypeTwoStats?
+  quizStatsTypeThree QuranQuizTypeThreeStats?
+  quizStatsTypeFour QuranQuizTypeFourStats?
+
+  quizQueue QuranQuizQueue?
+}
+
+model UserSetting {
+  id        String   @id @default(auto()) @map("_id") @db.ObjectId
+  user      User     @relation(fields: [userId], references: [id])
+  userId    String   @unique @db.ObjectId
+  theme     String   @default("light")
+  language  String   @default("en")
+  displayName String?
+  goals     String?
+  experienceLevel String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model UserExperience {
+  id        String   @id @default(auto()) @map("_id") @db.ObjectId
+  user      User     @relation(fields: [userId], references: [id])
+  userId    String   @unique @db.ObjectId
+  experience Int     @default(0)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model UserStreak {
+  id        String   @id @default(auto()) @map("_id") @db.ObjectId
+  user      User     @relation(fields: [userId], references: [id])
+  userId    String   @unique @db.ObjectId
+  streak    Int      @default(0)
+  lastActive DateTime?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model QuranQuizTypeOneStats {
+  id        String   @id @default(auto()) @map("_id") @db.ObjectId
+  user      User     @relation(fields: [userId], references: [id])
+  userId    String   @unique @db.ObjectId
+  attempts  Int      @default(0)
+  attemptsToday Int      @default(0)
+  streaks    Int      @default(0)
+  timeouts   Int      @default(0)
+  corrects   Int      @default(0)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model QuranQuizTypeTwoStats {
+  id        String   @id @default(auto()) @map("_id") @db.ObjectId
+  user      User     @relation(fields: [userId], references: [id])
+  userId    String   @unique @db.ObjectId
+  attempts  Int      @default(0)
+  attemptsToday Int      @default(0)
+  streaks    Int      @default(0)
+  timeouts   Int      @default(0)
+  corrects   Int      @default(0)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model QuranQuizTypeThreeStats {
+  id        String   @id @default(auto()) @map("_id") @db.ObjectId
+  user      User     @relation(fields: [userId], references: [id])
+  userId    String   @unique @db.ObjectId
+  attempts  Int      @default(0)
+  attemptsToday Int      @default(0)
+  streaks    Int      @default(0)
+  timeouts   Int      @default(0)
+  corrects   Int      @default(0)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model QuranQuizTypeFourStats {
+  id        String   @id @default(auto()) @map("_id") @db.ObjectId
+  user      User     @relation(fields: [userId], references: [id])
+  userId    String   @unique @db.ObjectId
+  attempts  Int      @default(0)
+  attemptsToday Int      @default(0)
+  streaks    Int      @default(0)
+  timeouts   Int      @default(0)
+  corrects   Int      @default(0)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model QuranQuizQueue {
+  id        String   @id @default(auto()) @map("_id") @db.ObjectId
+  user      User     @relation(fields: [userId], references: [id])
+  userId    String   @unique @db.ObjectId
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
