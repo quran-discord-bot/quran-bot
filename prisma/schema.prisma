@@ -25,6 +25,26 @@ model QuranApiToken {
   @@map("quran_api_tokens")
 }
 
+model Guild {
+  id        Int      @id @default(autoincrement())
+  discordId String   @unique
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  settings  GuildSetting?
+}
+
+model GuildSetting {
+  id            Int      @id @default(autoincrement())
+  guild         Guild    @relation(fields: [guildId], references: [id])
+  guildId       Int      @unique
+  language      String   @default("en")
+  logChannelId String?
+  quizChannelId String?
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+}
+
 model User {
   id        String @id @default(uuid())
   discordId String @unique

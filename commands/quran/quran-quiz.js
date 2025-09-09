@@ -18,7 +18,7 @@ import QuranCanvas from "../../utility/Canvas/QuranCanvas.js";
 const prisma = new PrismaClient();
 
 export const data = new SlashCommandBuilder()
-  .setName("quran-quiz")
+  .setName("quran-chapter-quiz")
   .setDescription(
     "Test your Quran knowledge - guess the chapter from a verse!"
   );
