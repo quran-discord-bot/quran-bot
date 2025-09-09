@@ -44,7 +44,7 @@ jobs:
           file: ./Dockerfile
           platforms: linux/amd64,linux/arm64
           push: ${{ github.ref_type == 'tag' }}
-          tags: ${{ github.ref_type == 'tag' && steps.meta.outputs.tags || 'discord-bot:alpine' }}
+          tags: ${{ github.ref_type == 'tag' && steps.meta.outputs.tags || 'quran-bot:alpine' }}
           labels: ${{ github.ref_type == 'tag' && steps.meta.outputs.labels || '' }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
@@ -61,4 +61,4 @@ jobs:
         if: github.ref_type != 'tag'
         run: |
           echo "Image size for alpine (amd64):"
-          docker images discord-bot:alpine-test --format "table {{.Repository}}:{{.Tag}}\t{{.Size}}"
+          docker images quran-bot:alpine-test --format "table {{.Repository}}:{{.Tag}}\t{{.Size}}"

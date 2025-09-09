@@ -436,7 +436,7 @@ export default function Home() {
               <ul className="space-y-2 text-gray-400">
                 <li>
                   <a
-                    href="https://github.com/runsdev/discord-bot"
+                    href="https://github.com/runsdev/quran-bot"
                     className="hover:text-white transition-colors"
                   >
                     GitHub Repository

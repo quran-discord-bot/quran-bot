@@ -1,5 +1,5 @@
 {
-  "name": "discord-bot",
+  "name": "quran-bot",
   "version": "1.5.4",
   "description": "A discord bot by runsha",
   "license": "MIT",
@@ -9,10 +9,10 @@
   "scripts": {
     "start": "node index.js",
     "build": "echo 'Build complete'",
-    "docker:build": "docker build -t discord-bot:alpine .",
-    "docker:build:distroless": "docker build -t discord-bot:distroless -f Dockerfile.distroless .",
-    "docker:run": "docker-compose up -d discord-bot",
-    "docker:run:distroless": "docker-compose --profile distroless up -d discord-bot-distroless",
+    "docker:build": "docker build -t quran-bot:alpine .",
+    "docker:build:distroless": "docker build -t quran-bot:distroless -f Dockerfile.distroless .",
+    "docker:run": "docker-compose up -d quran-bot",
+    "docker:run:distroless": "docker-compose --profile distroless up -d quran-bot-distroless",
     "docker:stop": "docker-compose down",
     "docker:logs": "docker-compose logs -f",
     "docker:clean": "docker-compose down && docker image prune -f",

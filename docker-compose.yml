@@ -1,9 +1,9 @@
 version: "3.8"
 
 services:
-  discord-bot:
-    image: ghcr.io/runsdev/discord-bot:latest
-    container_name: discord-bot
+  quran-bot:
+    image: ghcr.io/runsdev/quran-bot:latest
+    container_name: quran-bot
     restart: unless-stopped
     environment:
       - NODE_ENV=production
@@ -17,7 +17,7 @@ services:
     env_file:
       - .env
     volumes:
-      - discord-bot-data:/app/db
+      - quran-bot-data:/app/db
     # Uncomment if your bot serves HTTP endpoints
     # ports:
     #   - "3000:3000"
@@ -48,5 +48,5 @@ services:
       start_period: 10s
 
 volumes:
-  discord-bot-data:
+  quran-bot-data:
     driver: local
