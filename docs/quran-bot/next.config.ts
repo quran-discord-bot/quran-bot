@@ -15,7 +15,7 @@ const nextConfig: NextConfig = {
    *
    * @see https://nextjs.org/docs/app/api-reference/next-config-js/basePath
    */
-  basePath: "/quran-bot",
+  // basePath: "/quran-bot",
 
   /**
    * Disable server-based image optimization. Next.js does not support
