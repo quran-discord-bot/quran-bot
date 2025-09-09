@@ -2,6 +2,13 @@
 
 All notable changes to this project will be documented in this file. See [standard-version](https://github.com/conventional-changelog/standard-version) for commit guidelines.
 
+## [1.7.0](https://github.com/runsdev/discord-bot/compare/v1.6.1...v1.7.0) (2025-09-09)
+
+
+### Features
+
+* **guilds:** added support to be invited to other guilds ([552801c](https://github.com/runsdev/discord-bot/commit/552801c09d869b45247237791ac34218979c95e0))
+
 ### [1.6.1](https://github.com/runsdev/discord-bot/compare/v1.6.0...v1.6.1) (2025-09-09)
 
 ## [1.6.0](https://github.com/runsdev/discord-bot/compare/v1.5.4...v1.6.0) (2025-09-09)
