@@ -2,6 +2,13 @@
 
 All notable changes to this project will be documented in this file. See [standard-version](https://github.com/conventional-changelog/standard-version) for commit guidelines.
 
+## [1.6.0](https://github.com/runsdev/discord-bot/compare/v1.5.4...v1.6.0) (2025-09-09)
+
+
+### Features
+
+* **naming:** changed discord-bot to quran-bot ([95eb4b4](https://github.com/runsdev/discord-bot/commit/95eb4b46f1cf53d8693314fc081d31868821d879))
+
 ### [1.5.4](https://github.com/runsdev/quran-bot/compare/v1.5.3...v1.5.4) (2025-09-08)
 
 ### Features
