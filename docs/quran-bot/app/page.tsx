@@ -1,3 +1,5 @@
+import Image from "next/image";
+
 export default function Home() {
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-green-50 dark:from-gray-900 dark:via-gray-800 dark:to-gray-900">
@@ -58,35 +60,13 @@ export default function Home() {
               See Quran Bot in Action
             </h3>
             <div className="bg-gray-100 dark:bg-gray-700 rounded-lg p-6 text-left">
-              <div className="flex items-center mb-4">
-                <div className="w-8 h-8 bg-blue-500 rounded-full mr-3"></div>
-                <span className="font-semibold text-gray-900 dark:text-white">
-                  Quran Bot
-                </span>
-                <span className="bg-blue-100 text-blue-800 text-xs font-medium px-2 py-1 rounded ml-2">
-                  BOT
-                </span>
-              </div>
-              <div className="bg-blue-50 dark:bg-blue-900/30 border-l-4 border-blue-500 p-4 rounded">
-                <p className="text-gray-800 dark:text-gray-200 font-mono text-sm">
-                  🧩 <strong>Quran Quiz Challenge</strong>
-                  <br />
-                  <em>Which chapter (surah) is this verse from?</em>
-                  <br />
-                  Look at the Arabic text and choose the correct answer below.
-                </p>
-                <div className="mt-4 space-x-2">
-                  <button className="bg-blue-500 text-white px-3 py-1 rounded text-sm">
-                    A. Al-Fatihah
-                  </button>
-                  <button className="bg-gray-300 text-gray-700 px-3 py-1 rounded text-sm">
-                    B. Al-Baqarah
-                  </button>
-                  <button className="bg-gray-300 text-gray-700 px-3 py-1 rounded text-sm">
-                    C. Ali &apos;Imran
-                  </button>
-                </div>
-              </div>
+              <Image
+                src="/image.png"
+                alt="Quran Bot in action"
+                width={400}
+                height={600}
+                className="w-full h-auto rounded-lg shadow-lg"
+              />
             </div>
           </div>
         </section>
@@ -234,7 +214,9 @@ export default function Home() {
                 </h3>
                 <div className="space-y-3">
                   <div className="bg-white dark:bg-gray-800 p-4 rounded-lg">
-                    <code className="text-blue-600 font-mono">/quran-quiz</code>
+                    <code className="text-blue-600 font-mono">
+                      /quran-chapter-quiz
+                    </code>
                     <p className="text-sm text-gray-600 dark:text-gray-300 mt-1">
                       Start a chapter identification quiz
                     </p>
@@ -253,6 +235,14 @@ export default function Home() {
                     </code>
                     <p className="text-sm text-gray-600 dark:text-gray-300 mt-1">
                       Match verses with translations
+                    </p>
+                  </div>
+                  <div className="bg-white dark:bg-gray-800 p-4 rounded-lg">
+                    <code className="text-blue-600 font-mono">
+                      /missing-words-quiz
+                    </code>
+                    <p className="text-sm text-gray-600 dark:text-gray-300 mt-1">
+                      Counts the number of words missing in a verse
                     </p>
                   </div>
                 </div>
@@ -345,7 +335,7 @@ export default function Home() {
               <p className="text-gray-600 dark:text-gray-300">
                 Begin with{" "}
                 <code className="bg-gray-100 dark:bg-gray-700 px-2 py-1 rounded">
-                  /quran-quiz
+                  /quran-chapter-quiz
                 </code>{" "}
                 and explore all the interactive features!
               </p>
@@ -360,31 +350,31 @@ export default function Home() {
               Ready to Transform Your Server?
             </h2>
             <p className="text-xl mb-8 opacity-90">
-              Join thousands of users already learning the Quran on Discord
+              Invite Quran Bot to your Discord server
             </p>
 
             <div className="flex flex-col sm:flex-row gap-4 justify-center">
               <a
-                href="https://discord.com/oauth2/authorize?client_id=YOUR_BOT_CLIENT_ID&permissions=2147484672&integration_type=0&scope=bot+applications.commands"
+                href="https://discord.com/oauth2/authorize?client_id=1133346919901569044&permissions=2147484672&integration_type=0&scope=bot+applications.commands"
                 className="bg-white text-blue-600 hover:bg-gray-100 font-bold py-4 px-8 rounded-lg transition-colors text-lg inline-flex items-center justify-center"
                 target="_blank"
                 rel="noopener noreferrer"
               >
-                <svg
+                <Image
+                  src="/Discord-Symbol-Blurple.svg"
+                  alt="Discord"
+                  width={24}
+                  height={24}
                   className="w-6 h-6 mr-2"
-                  viewBox="0 0 24 24"
-                  fill="currentColor"
-                >
-                  <path d="M20.317 4.37a19.791 19.791 0 0 0-4.885-1.515a.074.074 0 0 0-.079.037c-.21.375-.444.864-.608 1.25a18.27 18.27 0 0 0-5.487 0a12.64 12.64 0 0 0-.617-1.25a.077.077 0 0 0-.079-.037A19.736 19.736 0 0 0 3.677 4.37a.07.07 0 0 0-.032.027C.533 9.046-.32 13.58.099 18.057a.082.082 0 0 0 .031.057a19.9 19.9 0 0 0 5.993 3.03a.078.078 0 0 0 .084-.028a14.09 14.09 0 0 0 1.226-1.994a.076.076 0 0 0-.041-.106a13.107 13.107 0 0 1-1.872-.892a.077.077 0 0 1-.008-.128a10.2 10.2 0 0 0 .372-.292a.074.074 0 0 1 .077-.01c3.928 1.793 8.18 1.793 12.062 0a.074.074 0 0 1 .078.01c.12.098.246.198.373.292a.077.077 0 0 1-.006.127a12.299 12.299 0 0 1-1.873.892a.077.077 0 0 0-.041.107c.36.698.772 1.362 1.225 1.993a.076.076 0 0 0 .084.028a19.839 19.839 0 0 0 6.002-3.03a.077.077 0 0 0 .032-.054c.5-5.177-.838-9.674-3.549-13.66a.061.061 0 0 0-.031-.03z" />
-                </svg>
+                />
                 Add Quran Bot to Discord
               </a>
-              <a
+              {/* <a
                 href="/docs"
                 className="border-2 border-white text-white hover:bg-white hover:text-blue-600 font-semibold py-4 px-8 rounded-lg transition-colors text-lg"
               >
                 📚 View Documentation
-              </a>
+              </a> */}
             </div>
 
             <p className="text-sm mt-6 opacity-75">
