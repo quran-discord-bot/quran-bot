@@ -2,6 +2,13 @@
 
 All notable changes to this project will be documented in this file. See [standard-version](https://github.com/conventional-changelog/standard-version) for commit guidelines.
 
+### [1.7.1](https://github.com/quran-discord-bot/quran-bot/compare/v1.7.0...v1.7.1) (2025-09-09)
+
+
+### Features
+
+* **guilds:** added support to be invited to other guilds ([f09a3c5](https://github.com/quran-discord-bot/quran-bot/commit/f09a3c5dad0748236cade31b6e13a6bf942e25ff))
+
 ## [1.7.0](https://github.com/runsdev/discord-bot/compare/v1.6.1...v1.7.0) (2025-09-09)
 
 
