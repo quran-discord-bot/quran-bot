@@ -304,12 +304,29 @@ export async function execute(interaction) {
         const currentStats = user.quizStatsTypeFour;
         const newStreak = isCorrect ? (currentStats?.streaks || 0) + 1 : 0;
 
+        // Check if attemptsToday should be reset (if last updated was yesterday)
+        let attemptsTodayUpdate = { increment: 1 };
+        let streaksUpdate = newStreak;
+        let updatedAt = user.quizStatsTypeFour?.updatedAt;
+        if (updatedAt) {
+          const last = new Date(updatedAt);
+          const now = new Date();
+          // If last update was before today (i.e., yesterday or earlier), reset attemptsToday
+          if (
+            last.getUTCFullYear() !== now.getUTCFullYear() ||
+            last.getUTCMonth() !== now.getUTCMonth() ||
+            last.getUTCDate() !== now.getUTCDate()
+          ) {
+            attemptsTodayUpdate = 1;
+          }
+        }
+
         await prisma.quranQuizTypeFourStats.upsert({
           where: { userId: user.id },
           update: {
             attempts: { increment: 1 },
-            attemptsToday: { increment: 1 },
-            streaks: newStreak,
+            attemptsToday: attemptsTodayUpdate,
+            streaks: streaksUpdate,
             corrects: isCorrect ? { increment: 1 } : undefined,
           },
           create: {
@@ -439,11 +456,27 @@ export async function execute(interaction) {
             });
 
             // Update timeout stats for Type Four
+            // Check if attemptsToday should be reset (if last updated was yesterday)
+            let attemptsTodayUpdate = { increment: 1 };
+            let updatedAt = user.quizStatsTypeFour?.updatedAt;
+            if (updatedAt) {
+              const last = new Date(updatedAt);
+              const now = new Date();
+              // If last update was before today (i.e., yesterday or earlier), reset attemptsToday
+              if (
+                last.getUTCFullYear() !== now.getUTCFullYear() ||
+                last.getUTCMonth() !== now.getUTCMonth() ||
+                last.getUTCDate() !== now.getUTCDate()
+              ) {
+                attemptsTodayUpdate = 1;
+              }
+            }
+
             await prisma.quranQuizTypeFourStats.upsert({
               where: { userId: user.id },
               update: {
                 attempts: { increment: 1 },
-                attemptsToday: { increment: 1 },
+                attemptsToday: attemptsTodayUpdate,
                 timeouts: { increment: 1 },
                 streaks: 0, // Reset streak on timeout
               },
