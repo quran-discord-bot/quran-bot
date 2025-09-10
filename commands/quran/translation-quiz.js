@@ -146,7 +146,7 @@ export async function execute(interaction) {
       translations
     );
 
-    if (wrongTranslations.length < 2) {
+    if (wrongTranslations.length < 4) {
       await safeEditReply(interaction, {
         content: "❌ Failed to generate quiz options. Please try again.",
       });
@@ -155,42 +155,40 @@ export async function execute(interaction) {
 
     // Clean HTML tags from all translations
     const cleanedCorrectTranslation = cleanHtmlTags(correctTranslation.text);
-    const cleanedWrongTranslations = wrongTranslations.map((text) =>
-      cleanHtmlTags(text)
-    );
+    const cleanedWrongTranslations = wrongTranslations
+      .slice(0, 4)
+      .map((text) => cleanHtmlTags(text));
 
     // Randomly decide if the correct answer should be included (70% chance it's included)
     const includeCorrectAnswer = Math.random() < 0.7;
 
-    let allChoices;
+    let shuffledChoices;
     let correctIndex;
+    let correctTranslationText = cleanedCorrectTranslation;
 
     if (includeCorrectAnswer) {
-      // Slice all translations to similar lengths based on the shortest one
-      const allCleanedChoices = [
-        cleanedCorrectTranslation,
-        ...cleanedWrongTranslations,
-      ];
-      const slicedChoices = sliceTranslationsToSimilarLength(allCleanedChoices);
+      // Include correct translation: randomly select 3 wrong + 1 correct + "None of the above"
+      const selectedWrong = shuffleArray(cleanedWrongTranslations).slice(0, 3);
+      const allTranslations = [cleanedCorrectTranslation, ...selectedWrong];
+      const slicedTranslations =
+        sliceTranslationsToSimilarLength(allTranslations);
 
-      // Create answer choices (1 correct + 2 wrong + "None of the above")
-      allChoices = [...slicedChoices, "None of the above"];
-      const shuffledChoices = shuffleArray(allChoices);
-      correctIndex = shuffledChoices.indexOf(slicedChoices[0]); // First item is always the correct one before shuffling
+      // Create final choices: 3 wrong + 1 correct + "None of the above"
+      const finalChoices = [
+        ...slicedTranslations.slice(1),
+        slicedTranslations[0],
+        "None of the above",
+      ];
+      shuffledChoices = shuffleArray(finalChoices);
+      correctIndex = shuffledChoices.indexOf(slicedTranslations[0]); // Find where correct translation ended up
+      correctTranslationText = slicedTranslations[0]; // Update to sliced version
     } else {
-      // Only wrong answers + "None of the above" (which becomes correct)
+      // Don't include correct translation: 4 wrong + "None of the above" (none of the above is correct)
       const slicedWrongChoices = sliceTranslationsToSimilarLength(
         cleanedWrongTranslations
       );
-      allChoices = [...slicedWrongChoices, "None of the above"];
-      const shuffledChoices = shuffleArray(allChoices);
-      correctIndex = shuffledChoices.indexOf("None of the above");
-    }
-
-    const shuffledChoices = shuffleArray(allChoices);
-    if (includeCorrectAnswer) {
-      correctIndex = shuffledChoices.indexOf(allChoices[0]); // Track the correct translation
-    } else {
+      const finalChoices = [...slicedWrongChoices, "None of the above"];
+      shuffledChoices = shuffleArray(finalChoices);
       correctIndex = shuffledChoices.indexOf("None of the above");
     }
 
@@ -214,11 +212,14 @@ export async function execute(interaction) {
     );
 
     const components = [new ActionRowBuilder().addComponents(buttons)];
+    const timeLimit = 45000 + verse.code_v2.length * 500; // 45 seconds + extra time based on glyph length
 
     // Create quiz content (no embed, just text and image)
     let quizContent = `**Translation Quiz Challenge**\n\n`;
     quizContent += `**Which translation matches this verse?**\n\n`;
-    quizContent += `**Instructions:** Look at the Arabic text below and choose the correct English translation below. You have 45 seconds to answer!\n\n`;
+    quizContent += `**Instructions:** Look at the Arabic text below and choose the correct English translation below. You have ${
+      timeLimit / 1000
+    } seconds to answer!\n\n`;
 
     // Add translation choices
     shuffledChoices.forEach((choice, index) => {
@@ -243,7 +244,7 @@ export async function execute(interaction) {
     }
 
     // Create collector
-    const timeLimit = 45000; // 45 seconds
+
     const collector = quizMessage.createMessageComponentCollector({
       componentType: ComponentType.Button,
       time: timeLimit,
@@ -332,6 +333,20 @@ export async function execute(interaction) {
         resultContent += `The correct answer was **${String.fromCharCode(
           65 + correctIndex
         )}**.\n\n`;
+
+        // Show all choices with correct answer bolded
+        resultContent += `📋 **All Choices:**\n`;
+        shuffledChoices.forEach((choice, index) => {
+          const letter = String.fromCharCode(65 + index);
+          if (index === correctIndex) {
+            resultContent += `> **${letter}. ${choice}** ✅\n`;
+          } else if (index === selectedIndex) {
+            resultContent += `> ${letter}. ${choice} ❌\n`;
+          } else {
+            resultContent += `> ${letter}. ${choice}\n`;
+          }
+        });
+        resultContent += `\n`;
       }
 
       resultContent += `📖 **Verse Details:**\n`;
@@ -341,15 +356,11 @@ export async function execute(interaction) {
 
       resultContent += `📍 **Verse Location:** ${verse.verse_key} • Page ${verse.page_number} • Juz ${verse.juz_number}\n\n`;
 
-      resultContent += `✅ **Correct Translation:**\n${cleanedCorrectTranslation}\n\n`;
-
-      if (!isCorrect) {
-        if (selectedAnswer === "None of the above") {
-          resultContent += `❌ **Your Choice:**\n> None of the above\n\n`;
-        } else {
-          resultContent += `❌ **Your Choice:**\n> ${selectedAnswer}\n\n`;
-        }
+      if (selectedAnswer === "None of the above" && isCorrect) {
+        resultContent += `✅ You answered **None of the above**, but the correct translation was:\n> ${correctTranslationText}\n\n`;
       }
+
+      resultContent += `✅ **Correct Translation:**\n${cleanedCorrectTranslation}\n\n`;
 
       resultContent += `💫 **Stats Update:**\n`;
       resultContent += `${xpChange > 0 ? "+" : ""}${xpChange} XP\n`;
@@ -451,7 +462,19 @@ export async function execute(interaction) {
             65 + correctIndex
           )}**.\n\n`;
 
-          timeoutContent += `✅ **Correct Translation:**\n> ${cleanedCorrectTranslation}\n\n`;
+          // Show all choices with correct answer bolded
+          timeoutContent += `📋 **All Choices:**\n`;
+          shuffledChoices.forEach((choice, index) => {
+            const letter = String.fromCharCode(65 + index);
+            if (index === correctIndex) {
+              timeoutContent += `> **${letter}. ${choice}** ✅\n`;
+            } else {
+              timeoutContent += `> ${letter}. ${choice}\n`;
+            }
+          });
+          timeoutContent += `\n`;
+
+          timeoutContent += `✅ **Correct Translation:**\n${cleanedCorrectTranslation}\n\n`;
 
           timeoutContent += `💫 **XP Penalty:** ${timeoutXpPenalty} XP\n`;
           timeoutContent += `Total: ${newXP} XP (Level ${newLevel})\n\n`;
@@ -559,8 +582,12 @@ async function generateSameChapterTranslations(
     const otherVerses = chapterVerses.filter((v) => v.verse_key !== verseKey);
     const shuffledVerses = shuffleArray(otherVerses);
 
-    // Get translations for up to 3 random verses from the same chapter (changed from 2 to 3)
-    for (let i = 0; i < Math.min(3, shuffledVerses.length); i++) {
+    // Get translations for up to 6 random verses from the same chapter (increased to ensure we get 4)
+    for (
+      let i = 0;
+      i < Math.min(6, shuffledVerses.length) && wrongTranslations.length < 4;
+      i++
+    ) {
       try {
         const randomVerse = shuffledVerses[i];
         const response = await translations.getTranslationByAyah(
@@ -571,7 +598,7 @@ async function generateSameChapterTranslations(
         if (response.translations && response.translations.length > 0) {
           const translation = response.translations[0];
 
-          // Only check if it's not the same as correct translation and not already included
+          // Only add if it's not the same as correct translation and not already included
           if (
             translation.text !== correctText &&
             !wrongTranslations.includes(translation.text)
@@ -588,32 +615,37 @@ async function generateSameChapterTranslations(
     }
 
     // If we don't have enough translations from the same chapter, fall back to random verses
-    if (wrongTranslations.length < 5) {
-      for (let i = 0; i < 3 - wrongTranslations.length; i++) {
-        try {
-          const randomVerse = await quranVerses.getRandomVerse();
-          if (randomVerse && randomVerse.verse_key !== verseKey) {
-            const response = await translations.getTranslationByAyah(
-              20,
-              randomVerse.verse_key
-            );
+    while (wrongTranslations.length < 4) {
+      try {
+        const randomVerse = await quranVerses.getRandomVerse();
+        if (randomVerse && randomVerse.verse_key !== verseKey) {
+          const response = await translations.getTranslationByAyah(
+            20,
+            randomVerse.verse_key
+          );
 
-            if (response.translations && response.translations.length > 0) {
-              const translation = response.translations[0];
+          if (response.translations && response.translations.length > 0) {
+            const translation = response.translations[0];
 
-              if (
-                translation.text !== correctText &&
-                !wrongTranslations.includes(translation.text)
-              ) {
-                wrongTranslations.push(translation.text);
+            if (
+              translation.text !== correctText &&
+              !wrongTranslations.includes(translation.text)
+            ) {
+              wrongTranslations.push(translation.text);
+
+              // Break if we've reached our target
+              if (wrongTranslations.length >= 4) {
+                break;
               }
             }
           }
-        } catch (error) {
-          console.warn(
-            "Failed to get random verse translation:",
-            error.message
-          );
+        }
+      } catch (error) {
+        console.warn("Failed to get random verse translation:", error.message);
+
+        // Prevent infinite loop in case of persistent errors
+        if (wrongTranslations.length === 0) {
+          break;
         }
       }
     }
@@ -683,7 +715,7 @@ function shuffleArray(array) {
 }
 
 // Helper function to slice translations to similar lengths
-function sliceTranslationsToSimilarLength(translations) {
+function sliceTranslationsToSimilarLength(translations, attempts) {
   if (!translations || translations.length === 0) return translations;
 
   // Find the shortest translation length
@@ -691,10 +723,13 @@ function sliceTranslationsToSimilarLength(translations) {
 
   // Calculate a reasonable slice length (between 60% and 90% of shortest)
   // but ensure it's at least 50 characters for readability
-  const sliceLength = Math.max(
-    50,
-    Math.floor(minLength * (0.6 + Math.random() * 0.3))
-  );
+  // If attempts is provided, make it more challenging by reducing slice length as attempts increase
+  let difficultyFactor = 1;
+  if (typeof attempts === "number" && attempts > 0) {
+    // Reduce slice length by up to 30% as attempts increase, min 60% of original
+    difficultyFactor = Math.max(0.1, 1 - attempts * 0.01);
+  }
+  const sliceLength = Math.max(10, Math.floor(minLength * difficultyFactor));
 
   return translations.map((translation) => {
     if (translation.length <= sliceLength + 20) {
