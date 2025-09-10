@@ -170,8 +170,10 @@ export async function execute(interaction) {
       // Include correct translation: randomly select 3 wrong + 1 correct + "None of the above"
       const selectedWrong = shuffleArray(cleanedWrongTranslations).slice(0, 3);
       const allTranslations = [cleanedCorrectTranslation, ...selectedWrong];
-      const slicedTranslations =
-        sliceTranslationsToSimilarLength(allTranslations);
+      const slicedTranslations = sliceTranslationsToSimilarLength(
+        allTranslations,
+        user.quizStatsTypeFour?.attemptsToday || 10
+      );
 
       // Create final choices: 3 wrong + 1 correct + "None of the above"
       const finalChoices = [
@@ -185,7 +187,8 @@ export async function execute(interaction) {
     } else {
       // Don't include correct translation: 4 wrong + "None of the above" (none of the above is correct)
       const slicedWrongChoices = sliceTranslationsToSimilarLength(
-        cleanedWrongTranslations
+        cleanedWrongTranslations,
+        user.quizStatsTypeFour?.attemptsToday || 10
       );
       const finalChoices = [...slicedWrongChoices, "None of the above"];
       shuffledChoices = shuffleArray(finalChoices);
