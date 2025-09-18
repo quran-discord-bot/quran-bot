@@ -765,7 +765,10 @@ function sliceTranslationsToSimilarLength(translations, attempts) {
     // Reduce slice length by up to 30% as attempts increase, min 60% of original
     difficultyFactor = Math.max(0.1, 1 - attempts * 0.01);
   }
-  const sliceLength = Math.max(10, Math.floor(minLength * difficultyFactor));
+  const sliceLength = Math.max(
+    20,
+    Math.floor(minLength * difficultyFactor) + 20
+  );
 
   return translations.map((translation) => {
     if (translation.length <= sliceLength + 20) {
