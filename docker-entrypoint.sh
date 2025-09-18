@@ -18,21 +18,23 @@ else
   export PRISMA_QUERY_ENGINE_BINARY=/app/node_modules/prisma/query-engine-linux-musl
 fi
 
-# Initialize database if needed
-echo "🔄 Checking database on $ARCH architecture..."
-if [ ! -f "db/prod.db" ]; then
-  echo "📦 Database not found, creating database and applying schema..."
-  npx prisma db push --force-reset --schema=prisma/schema.prisma.mongodb || {
-    echo "❌ Schema push failed, trying alternative approach..."
-    npx prisma migrate reset --force || echo "⚠️ Migration reset failed"
-  }
-else
-  echo "✅ Database exists, ensuring schema is current..."
-  npx prisma db push --schema=prisma/schema.prisma.mongodb || {
-    echo "⚠️ Schema push failed, trying migrations..."
-    npx prisma migrate deploy || echo "⚠️ Migration failed, continuing..."
-  }
-fi
+# Initialize database if needed (SQLITE CASES)
+# echo "🔄 Checking database on $ARCH architecture..."
+# if [ ! -f "db/prod.db" ]; then
+#   echo "📦 Database not found, creating database and applying schema..."
+#   npx prisma db push --force-reset --schema=prisma/schema.prisma.mongodb || {
+#     echo "❌ Schema push failed, trying alternative approach..."
+#     npx prisma migrate reset --force || echo "⚠️ Migration reset failed"
+#   }
+# else
+#   echo "✅ Database exists, ensuring schema is current..."
+#   npx prisma db push --schema=prisma/schema.prisma.mongodb || {
+#     echo "⚠️ Schema push failed, trying migrations..."
+#     npx prisma migrate deploy || echo "⚠️ Migration failed, continuing..."
+#   }
+# fi
+
+npx prisma db push --schema=prisma/schema.prisma.mongodb
 
 # Start the Discord bot
 echo "🤖 Starting Discord Bot on $ARCH..."
