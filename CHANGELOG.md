@@ -2,6 +2,13 @@
 
 All notable changes to this project will be documented in this file. See [standard-version](https://github.com/conventional-changelog/standard-version) for commit guidelines.
 
+### [1.7.5](https://github.com/quran-discord-bot/quran-bot/compare/v1.7.4...v1.7.5) (2025-09-18)
+
+
+### Bug Fixes
+
+* docker entrypoiny ([fcdb7d3](https://github.com/quran-discord-bot/quran-bot/commit/fcdb7d3e088fceb2e2560ecc70f90359198ddd91))
+
 ### [1.7.4](https://github.com/quran-discord-bot/quran-bot/compare/v1.7.3...v1.7.4) (2025-09-10)
 
 
