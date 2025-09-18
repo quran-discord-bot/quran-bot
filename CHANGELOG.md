@@ -2,6 +2,13 @@
 
 All notable changes to this project will be documented in this file. See [standard-version](https://github.com/conventional-changelog/standard-version) for commit guidelines.
 
+### [1.7.6](https://github.com/quran-discord-bot/quran-bot/compare/v1.7.5...v1.7.6) (2025-09-18)
+
+
+### Features
+
+* quiz buff ([0f21fa9](https://github.com/quran-discord-bot/quran-bot/commit/0f21fa9ceac079fa679373f1041bd3384af69b7f))
+
 ### [1.7.5](https://github.com/quran-discord-bot/quran-bot/compare/v1.7.4...v1.7.5) (2025-09-18)
 
 
