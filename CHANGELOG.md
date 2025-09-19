@@ -2,6 +2,13 @@
 
 All notable changes to this project will be documented in this file. See [standard-version](https://github.com/conventional-changelog/standard-version) for commit guidelines.
 
+### [1.7.9](https://github.com/quran-discord-bot/quran-bot/compare/v1.7.8...v1.7.9) (2025-09-19)
+
+
+### Features
+
+* remove arm ([502f3fb](https://github.com/quran-discord-bot/quran-bot/commit/502f3fb9aef081a54d80f64e4a054c7ba8a6c1ff))
+
 ### [1.7.8](https://github.com/quran-discord-bot/quran-bot/compare/v1.7.7...v1.7.8) (2025-09-19)
 
 
