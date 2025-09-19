@@ -42,7 +42,8 @@ jobs:
         with:
           context: .
           file: ./Dockerfile
-          platforms: linux/amd64,linux/arm64
+          # platforms: linux/amd64,linux/arm64
+          platforms: linux/amd64
           push: ${{ github.ref_type == 'tag' }}
           tags: ${{ github.ref_type == 'tag' && steps.meta.outputs.tags || 'quran-bot:alpine' }}
           labels: ${{ github.ref_type == 'tag' && steps.meta.outputs.labels || '' }}
