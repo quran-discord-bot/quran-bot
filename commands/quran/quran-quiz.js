@@ -19,8 +19,14 @@ const prisma = new PrismaClient();
 
 export const data = new SlashCommandBuilder()
   .setName("quran-chapter-quiz")
-  .setDescription(
-    "Test your Quran knowledge - guess the chapter from a verse!"
+  .setDescription("Test your Quran knowledge - guess the chapter from a verse!")
+  .addIntegerOption((option) =>
+    option
+      .setName("juz")
+      .setDescription("Choose a specific Juz (1-30) for the quiz")
+      .setMinValue(1)
+      .setMaxValue(30)
+      .setRequired(false)
   );
 
 export async function execute(interaction) {
@@ -37,6 +43,7 @@ export async function execute(interaction) {
     }
 
     const userId = interaction.user.id;
+    const customJuz = interaction.options.getInteger("juz");
 
     // Check if user is registered
     const user = await prisma.user.findUnique({
@@ -94,8 +101,13 @@ export async function execute(interaction) {
     });
     const attemptsToday = isNewDay ? 0 : currentStats?.attemptsToday || 0;
 
-    // Get random verse from any chapter
-    const verse = await quranVerses.getRandomVerse();
+    // Get random verse
+    let verse;
+    if (customJuz) {
+      verse = await quranVerses.getRandomVerseByJuz(customJuz);
+    } else {
+      verse = await quranVerses.getRandomVerse();
+    }
 
     if (!verse) {
       await interaction.editReply(
@@ -169,23 +181,31 @@ export async function execute(interaction) {
       embed = new EmbedBuilder()
         .setTitle("🧩 Advanced Quran Quiz Challenge")
         .setDescription(
-          "**Which chapter (surah) is this verse from?**\n*Select from the chapters below. You have 45 seconds to answer!*"
+          `**Which chapter (surah) is this verse from?**\n*Select from the chapters below. You have 45 seconds to answer!*${
+            customJuz ? `\n\n📖 **Custom Juz ${customJuz}** - No XP earned` : ""
+          }`
         )
-        .setColor(0xff9500)
+        .setColor(customJuz ? 0xffa500 : 0xff9500)
         .addFields(
           {
             name: "🔥 Advanced Mode",
-            value: `You've completed ${attemptsToday} attempts today! Choose from ${selectedChapters.length} adjacent chapters.`,
+            value: customJuz
+              ? `🎓 Practice Mode - Custom Juz ${customJuz}`
+              : `You've completed ${attemptsToday} attempts today! Choose from ${selectedChapters.length} adjacent chapters.`,
             inline: false,
           },
           {
             name: "🏆 Rewards",
-            value: "✅ Correct: +15 XP\n❌ Wrong: -7 XP",
+            value: customJuz
+              ? "🎓 Practice Mode - No XP/stats affected"
+              : "✅ Correct: +15 XP\n❌ Wrong: -7 XP",
             inline: true,
           },
           {
             name: "🔥 Current Streak",
-            value: `${currentStats?.streaks || 0} correct in a row`,
+            value: customJuz
+              ? "Practice Mode"
+              : `${currentStats?.streaks || 0} correct in a row`,
             inline: true,
           },
           {
@@ -223,9 +243,11 @@ export async function execute(interaction) {
       embed = new EmbedBuilder()
         .setTitle("🧩 Quran Quiz Challenge")
         .setDescription(
-          "**Which chapter (surah) is this verse from?**\n*Look at the Arabic text and choose the correct answer below.*"
+          `**Which chapter (surah) is this verse from?**\n*Look at the Arabic text and choose the correct answer below.*${
+            customJuz ? `\n\n📖 **Custom Juz ${customJuz}** - No XP earned` : ""
+          }`
         )
-        .setColor(0x4dabf7)
+        .setColor(customJuz ? 0xffa500 : 0x4dabf7)
         .addFields(
           {
             name: "🎯 Instructions",
@@ -235,14 +257,18 @@ export async function execute(interaction) {
           },
           {
             name: "🏆 Rewards",
-            value: "✅ Correct: +10 XP\n❌ Wrong: -2 XP",
+            value: customJuz
+              ? "🎓 Practice Mode - No XP/stats affected"
+              : "✅ Correct: +10 XP\n❌ Wrong: -2 XP",
             inline: true,
           },
           {
             name: "📊 Today's Progress",
-            value: `${attemptsToday}/5 attempts\n${
-              currentStats?.streaks || 0
-            } streak`,
+            value: customJuz
+              ? "Practice Mode"
+              : `${attemptsToday}/5 attempts\n${
+                  currentStats?.streaks || 0
+                } streak`,
             inline: true,
           }
         )
@@ -302,54 +328,58 @@ export async function execute(interaction) {
         isCorrect = selectedAnswer === correctChapterName;
       }
 
-      // Calculate XP and streak changes
+      // Calculate XP and streak changes (only if not custom Juz)
       let xpChange = 0;
       let newLevel = Math.floor((user.experience?.experience || 0) / 100) + 1;
       let newXP = user.experience?.experience || 0;
       let newStreak = currentStats?.streaks || 0;
 
-      if (isCorrect) {
-        xpChange = attemptsToday >= 5 ? 15 : 10; // More XP for advanced mode
-        newXP += xpChange;
-        newStreak += 1;
-        newLevel = Math.floor(newXP / 100) + 1;
-      } else {
-        xpChange = attemptsToday >= 5 ? -7 : -2; // More penalty for advanced mode
-        newXP = Math.max(0, newXP + xpChange);
-        newStreak = 0; // Reset streak on wrong answer
-        newLevel = Math.floor(newXP / 100) + 1;
+      if (!customJuz) {
+        if (isCorrect) {
+          xpChange = attemptsToday >= 5 ? 15 : 10; // More XP for advanced mode
+          newXP += xpChange;
+          newStreak += 1;
+          newLevel = Math.floor(newXP / 100) + 1;
+        } else {
+          xpChange = attemptsToday >= 5 ? -7 : -2; // More penalty for advanced mode
+          newXP = Math.max(0, newXP + xpChange);
+          newStreak = 0; // Reset streak on wrong answer
+          newLevel = Math.floor(newXP / 100) + 1;
+        }
       }
 
-      // Update database
-      await prisma.userExperience.upsert({
-        where: { userId: user.id },
-        update: {
-          experience: newXP,
-        },
-        create: {
-          userId: user.id,
-          experience: newXP,
-        },
-      });
+      // Update database (only if not custom Juz)
+      if (!customJuz) {
+        await prisma.userExperience.upsert({
+          where: { userId: user.id },
+          update: {
+            experience: newXP,
+          },
+          create: {
+            userId: user.id,
+            experience: newXP,
+          },
+        });
 
-      // Update quiz statistics (Type One)
-      await prisma.quranQuizTypeOneStats.upsert({
-        where: { userId: user.id },
-        update: {
-          attempts: { increment: 1 },
-          attemptsToday: { increment: 1 },
-          streaks: newStreak,
-          corrects: isCorrect ? { increment: 1 } : undefined,
-        },
-        create: {
-          userId: user.id,
-          attempts: 1,
-          attemptsToday: 1,
-          streaks: isCorrect ? 1 : 0,
-          corrects: isCorrect ? 1 : 0,
-          timeouts: 0,
-        },
-      });
+        // Update quiz statistics (Type One)
+        await prisma.quranQuizTypeOneStats.upsert({
+          where: { userId: user.id },
+          update: {
+            attempts: { increment: 1 },
+            attemptsToday: { increment: 1 },
+            streaks: newStreak,
+            corrects: isCorrect ? { increment: 1 } : undefined,
+          },
+          create: {
+            userId: user.id,
+            attempts: 1,
+            attemptsToday: 1,
+            streaks: isCorrect ? 1 : 0,
+            corrects: isCorrect ? 1 : 0,
+            timeouts: 0,
+          },
+        });
+      }
 
       // Create result embed
       const resultEmbed = new EmbedBuilder()
@@ -363,7 +393,13 @@ export async function execute(interaction) {
         .addFields(
           {
             name: "📖 Chapter Details",
-            value: `**${correctChapterData.name_arabic}** (${correctChapterName})\nChapter ${correctChapterId} • ${correctChapterData.verses_count} verses\nRevealed in ${correctChapterData.revelation_place}`,
+            value: `**${
+              correctChapterData.name_arabic
+            }** (${correctChapterName})\nChapter ${correctChapterId} • ${
+              correctChapterData.verses_count
+            } verses\nRevealed in ${correctChapterData.revelation_place}${
+              customJuz ? `\n🎓 Custom Juz ${customJuz} Practice` : ""
+            }`,
             inline: false,
           },
           {
@@ -373,21 +409,25 @@ export async function execute(interaction) {
           },
           {
             name: "💫 Stats Update",
-            value: `${
-              xpChange > 0 ? "+" : ""
-            }${xpChange} XP\nTotal: ${newXP} XP (Level ${newLevel})\n🔥 Streak: ${newStreak}`,
+            value: customJuz
+              ? "🎓 Practice Mode - No stats affected"
+              : `${
+                  xpChange > 0 ? "+" : ""
+                }${xpChange} XP\nTotal: ${newXP} XP (Level ${newLevel})\n🔥 Streak: ${newStreak}`,
             inline: true,
           },
           {
             name: "📊 Today's Progress",
-            value: `${attemptsToday + 1} attempts${
-              attemptsToday + 1 === 5 ? "\n🚀 Advanced mode unlocked!" : ""
-            }`,
+            value: customJuz
+              ? "Practice Mode"
+              : `${attemptsToday + 1} attempts${
+                  attemptsToday + 1 === 5 ? "\n🚀 Advanced mode unlocked!" : ""
+                }`,
             inline: true,
           }
         )
         .setFooter({
-          text: "Play again with /quran-quiz to earn more XP!",
+          text: "Play again with /quran-chapter-quiz to earn more XP!",
         })
         .setTimestamp();
 
@@ -447,43 +487,46 @@ export async function execute(interaction) {
 
     collector.on("end", async (collected) => {
       if (collected.size === 0) {
-        // Timeout - update timeout stats and apply XP penalty
-        const timeoutXpPenalty = attemptsToday >= 5 ? -3 : -1;
-        const newXP = Math.max(
-          0,
-          (user.experience?.experience || 0) + timeoutXpPenalty
-        );
-        const newLevel = Math.floor(newXP / 100) + 1;
+        // Timeout - update timeout stats and apply XP penalty (only if not custom Juz)
+        let timeoutXpPenalty = 0;
+        let newXP = user.experience?.experience || 0;
+        let newLevel = Math.floor(newXP / 100) + 1;
 
-        // Update user experience with timeout penalty
-        await prisma.userExperience.upsert({
-          where: { userId: user.id },
-          update: {
-            experience: newXP,
-          },
-          create: {
-            userId: user.id,
-            experience: newXP,
-          },
-        });
+        if (!customJuz) {
+          timeoutXpPenalty = attemptsToday >= 5 ? -3 : -1;
+          newXP = Math.max(0, newXP + timeoutXpPenalty);
+          newLevel = Math.floor(newXP / 100) + 1;
 
-        await prisma.quranQuizTypeOneStats.upsert({
-          where: { userId: user.id },
-          update: {
-            attempts: { increment: 1 },
-            attemptsToday: { increment: 1 },
-            timeouts: { increment: 1 },
-            streaks: 0, // Reset streak on timeout
-          },
-          create: {
-            userId: user.id,
-            attempts: 1,
-            attemptsToday: 1,
-            corrects: 0,
-            timeouts: 1,
-            streaks: 0,
-          },
-        });
+          // Update user experience with timeout penalty
+          await prisma.userExperience.upsert({
+            where: { userId: user.id },
+            update: {
+              experience: newXP,
+            },
+            create: {
+              userId: user.id,
+              experience: newXP,
+            },
+          });
+
+          await prisma.quranQuizTypeOneStats.upsert({
+            where: { userId: user.id },
+            update: {
+              attempts: { increment: 1 },
+              attemptsToday: { increment: 1 },
+              timeouts: { increment: 1 },
+              streaks: 0, // Reset streak on timeout
+            },
+            create: {
+              userId: user.id,
+              attempts: 1,
+              attemptsToday: 1,
+              corrects: 0,
+              timeouts: 1,
+              streaks: 0,
+            },
+          });
+        }
 
         // Timeout - no answer given
         const timeoutEmbed = new EmbedBuilder()
@@ -495,17 +538,25 @@ export async function execute(interaction) {
           .addFields(
             {
               name: "📖 Chapter Details",
-              value: `**${correctChapterData.name_arabic}** (${correctChapterName})\nChapter ${correctChapterId} • ${correctChapterData.verses_count} verses`,
+              value: `**${
+                correctChapterData.name_arabic
+              }** (${correctChapterName})\nChapter ${correctChapterId} • ${
+                correctChapterData.verses_count
+              } verses${
+                customJuz ? `\n🎓 Custom Juz ${customJuz} Practice` : ""
+              }`,
               inline: false,
             },
             {
               name: "💫 XP Penalty",
-              value: `${timeoutXpPenalty} XP\nTotal: ${newXP} XP (Level ${newLevel})`,
+              value: customJuz
+                ? "🎓 Practice Mode - No stats affected"
+                : `${timeoutXpPenalty} XP\nTotal: ${newXP} XP (Level ${newLevel})`,
               inline: true,
             },
             {
               name: "💡 Try Again",
-              value: "Use `/quran-quiz` to test your knowledge again!",
+              value: "Use `/quran-chapter-quiz` to test your knowledge again!",
               inline: false,
             }
           )
