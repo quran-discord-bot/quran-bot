@@ -147,7 +147,7 @@ class QuranCanvas {
     );
 
     // Create canvas
-    const canvas = createCanvas(width, height);
+    const canvas = createCanvas(min(width, glyph.length * 30), height);
     const ctx = canvas.getContext("2d");
 
     // Configure text rendering
@@ -329,7 +329,7 @@ class QuranCanvas {
     );
 
     // Create canvas
-    const canvas = createCanvas(width, height);
+    const canvas = createCanvas(min(width, glyph.length * 30), height);
     const ctx = canvas.getContext("2d");
 
     // Fill background
@@ -559,7 +559,7 @@ class QuranCanvas {
     );
 
     // Create canvas
-    const canvas = createCanvas(width, height);
+    const canvas = createCanvas(min(width, glyph.length * 30), height);
     const ctx = canvas.getContext("2d");
 
     // Fill background
@@ -730,7 +730,7 @@ class QuranCanvas {
     );
 
     // Create canvas
-    const canvas = createCanvas(width, height);
+    const canvas = createCanvas(min(width, glyph.length * 30), height);
     const ctx = canvas.getContext("2d");
 
     // Fill background

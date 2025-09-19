@@ -22,7 +22,7 @@ export const data = new SlashCommandBuilder()
   .setDescription(
     "Test your Quran knowledge - identify the missing words from a verse!"
   )
-  .addIntegerOption(option =>
+  .addIntegerOption((option) =>
     option
       .setName("juz")
       .setDescription("Choose a specific Juz (1-30) for the quiz")
@@ -185,7 +185,7 @@ export async function execute(interaction) {
         },
         {
           name: "🏆 Rewards",
-          value: customJuz 
+          value: customJuz
             ? "🎓 Practice Mode - No XP/stats affected"
             : "✅ Correct: +10 XP\n❌ Wrong: -2 XP",
           inline: true,
@@ -194,9 +194,7 @@ export async function execute(interaction) {
           name: "📊 Today's Progress",
           value: customJuz
             ? "Practice Mode"
-            : `${attemptsToday} attempts\n${
-                currentStats?.streaks || 0
-              } streak`,
+            : `${attemptsToday} attempts\n${currentStats?.streaks || 0} streak`,
           inline: true,
         },
         {
@@ -359,12 +357,7 @@ export async function execute(interaction) {
           },
           {
             name: "🔍 Missing Words Answer",
-            value:
-              correctCount === 0
-                ? "None (complete verse)"
-                : `The missing words were: ${missingWords.join(" ")}${
-                    missingWords.length > 0 ? " (shown below)" : ""
-                  }`,
+            value: "The missing word shown in the 2nd image (above)",
             inline: false,
           },
           {
@@ -615,7 +608,9 @@ function createMissingWordsQuiz(originalText) {
   const words = originalText.trim().split(/\s+/);
 
   // Randomly decide how many words to remove (0-4)
-  const numToRemove = Math.floor(Math.random() * 5); // 0, 1, 2, 3, or 4
+  const maxMissing = Math.min(5, words.length > 5 ? 5 : 0);
+  const numToRemove =
+    maxMissing === 0 ? 0 : Math.floor(Math.random() * (maxMissing + 1));
 
   if (numToRemove === 0) {
     return {
