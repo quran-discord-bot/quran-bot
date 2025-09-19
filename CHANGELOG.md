@@ -2,6 +2,13 @@
 
 All notable changes to this project will be documented in this file. See [standard-version](https://github.com/conventional-changelog/standard-version) for commit guidelines.
 
+### [1.7.7](https://github.com/quran-discord-bot/quran-bot/compare/v1.7.6...v1.7.7) (2025-09-19)
+
+
+### Features
+
+* add custom juz ([d3fd870](https://github.com/quran-discord-bot/quran-bot/commit/d3fd870f02f1f4e5db806c054e045efb51a6d258))
+
 ### [1.7.6](https://github.com/quran-discord-bot/quran-bot/compare/v1.7.5...v1.7.6) (2025-09-18)
 
 
