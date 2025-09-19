@@ -2,6 +2,13 @@
 
 All notable changes to this project will be documented in this file. See [standard-version](https://github.com/conventional-changelog/standard-version) for commit guidelines.
 
+### [1.7.10](https://github.com/quran-discord-bot/quran-bot/compare/v1.7.9...v1.7.10) (2025-09-19)
+
+
+### Features
+
+* repair canvas width ([37039b9](https://github.com/quran-discord-bot/quran-bot/commit/37039b95e6dba346740e4271b70e23a28cbe74d5))
+
 ### [1.7.9](https://github.com/quran-discord-bot/quran-bot/compare/v1.7.8...v1.7.9) (2025-09-19)
 
 
