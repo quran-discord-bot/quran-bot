@@ -466,6 +466,23 @@ class QuranVerses {
   }
 
   /**
+   * Get a random verse from a specific Juz
+   * @param {number} juzNumber - Juz number (1-30)
+   * @param {Object} options - Additional options (same as getRandomVerse)
+   * @returns {Promise<Object>} Random verse object from the specified Juz
+   */
+  async getRandomVerseByJuz(juzNumber, options = {}) {
+    if (!juzNumber || juzNumber < 1 || juzNumber > 30) {
+      throw new Error("Juz number must be between 1 and 30");
+    }
+
+    return this.getRandomVerse({
+      ...options,
+      juz_number: juzNumber,
+    });
+  }
+
+  /**
    * Get a specific verse by its key (chapter:verse format)
    * @param {string} verseKey - Verse key in format "chapter:verse" (e.g., "1:1", "10:5")
    * @param {Object} options - Query parameters

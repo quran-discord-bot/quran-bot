@@ -21,6 +21,14 @@ export const data = new SlashCommandBuilder()
   .setName("missing-words-quiz")
   .setDescription(
     "Test your Quran knowledge - identify the missing words from a verse!"
+  )
+  .addIntegerOption(option =>
+    option
+      .setName("juz")
+      .setDescription("Choose a specific Juz (1-30) for the quiz")
+      .setMinValue(1)
+      .setMaxValue(30)
+      .setRequired(false)
   );
 
 export async function execute(interaction) {
@@ -37,6 +45,7 @@ export async function execute(interaction) {
     }
 
     const userId = interaction.user.id;
+    const customJuz = interaction.options.getInteger("juz");
 
     // Check if user is registered
     const user = await prisma.user.findUnique({
@@ -100,14 +109,18 @@ export async function execute(interaction) {
     const maxAttempts = 10;
 
     do {
-      verse = await quranVerses.getRandomVerse();
+      if (customJuz) {
+        verse = await quranVerses.getRandomVerseByJuz(customJuz);
+      } else {
+        verse = await quranVerses.getRandomVerse();
+      }
       attempts++;
 
       // Check if verse has enough words (glyph length > 13)
       if (
         verse &&
         verse.code_v2 &&
-        verse.code_v2.trim().split(/\s+/).length > 13
+        verse.code_v2.trim().split(/\s+/).length > 5
       ) {
         break;
       }
@@ -158,9 +171,11 @@ export async function execute(interaction) {
     const embed = new EmbedBuilder()
       .setTitle("🔍 Missing Words Count Quiz")
       .setDescription(
-        "**How many words are missing from this verse?**\n*Look at the verse and count the missing words.*"
+        `**How many words are missing from this verse?**\n*Look at the verse and count the missing words.*${
+          customJuz ? `\n\n📖 **Custom Juz ${customJuz}** - No XP earned` : ""
+        }`
       )
-      .setColor(0x4dabf7)
+      .setColor(customJuz ? 0xffa500 : 0x4dabf7)
       .addFields(
         {
           name: "🎯 Instructions",
@@ -170,14 +185,18 @@ export async function execute(interaction) {
         },
         {
           name: "🏆 Rewards",
-          value: "✅ Correct: +10 XP\n❌ Wrong: -2 XP",
+          value: customJuz 
+            ? "🎓 Practice Mode - No XP/stats affected"
+            : "✅ Correct: +10 XP\n❌ Wrong: -2 XP",
           inline: true,
         },
         {
           name: "📊 Today's Progress",
-          value: `${attemptsToday} attempts\n${
-            currentStats?.streaks || 0
-          } streak`,
+          value: customJuz
+            ? "Practice Mode"
+            : `${attemptsToday} attempts\n${
+                currentStats?.streaks || 0
+              } streak`,
           inline: true,
         },
         {
@@ -251,37 +270,46 @@ export async function execute(interaction) {
       const correctCount = missingWords.length;
       const isCorrect = selectedCount === correctCount;
 
-      // Calculate XP and update stats
-      const xpChange = isCorrect ? 10 : -2;
-      const newXP = Math.max(0, (user.experience?.experience || 0) + xpChange);
-      const newLevel = Math.floor(newXP / 100) + 1;
-      const newStreak = isCorrect ? (currentStats?.streaks || 0) + 1 : 0;
+      // Calculate XP and update stats (only if not custom Juz)
+      let xpChange = 0;
+      let newXP = user.experience?.experience || 0;
+      let newLevel = Math.floor(newXP / 100) + 1;
+      let newStreak = currentStats?.streaks || 0;
+
+      if (!customJuz) {
+        xpChange = isCorrect ? 10 : -2;
+        newXP = Math.max(0, newXP + xpChange);
+        newLevel = Math.floor(newXP / 100) + 1;
+        newStreak = isCorrect ? newStreak + 1 : 0;
+      }
 
       try {
-        // Update database
-        await prisma.userExperience.upsert({
-          where: { userId: user.id },
-          update: { experience: newXP },
-          create: { userId: user.id, experience: newXP },
-        });
+        // Update database (only if not custom Juz)
+        if (!customJuz) {
+          await prisma.userExperience.upsert({
+            where: { userId: user.id },
+            update: { experience: newXP },
+            create: { userId: user.id, experience: newXP },
+          });
 
-        await prisma.quranQuizTypeThreeStats.upsert({
-          where: { userId: user.id },
-          update: {
-            attempts: { increment: 1 },
-            attemptsToday: { increment: 1 },
-            streaks: newStreak,
-            corrects: isCorrect ? { increment: 1 } : undefined,
-          },
-          create: {
-            userId: user.id,
-            attempts: 1,
-            attemptsToday: 1,
-            streaks: isCorrect ? 1 : 0,
-            corrects: isCorrect ? 1 : 0,
-            timeouts: 0,
-          },
-        });
+          await prisma.quranQuizTypeThreeStats.upsert({
+            where: { userId: user.id },
+            update: {
+              attempts: { increment: 1 },
+              attemptsToday: { increment: 1 },
+              streaks: newStreak,
+              corrects: isCorrect ? { increment: 1 } : undefined,
+            },
+            create: {
+              userId: user.id,
+              attempts: 1,
+              attemptsToday: 1,
+              streaks: isCorrect ? 1 : 0,
+              corrects: isCorrect ? 1 : 0,
+              timeouts: 0,
+            },
+          });
+        }
       } catch (dbError) {
         console.error("Database update error:", dbError.message);
       }
@@ -341,14 +369,18 @@ export async function execute(interaction) {
           },
           {
             name: "💫 Stats Update",
-            value: `${
-              xpChange > 0 ? "+" : ""
-            }${xpChange} XP\nTotal: ${newXP} XP (Level ${newLevel})\n🔥 Streak: ${newStreak}`,
+            value: customJuz
+              ? "🎓 Practice Mode - No stats affected"
+              : `${
+                  xpChange > 0 ? "+" : ""
+                }${xpChange} XP\nTotal: ${newXP} XP (Level ${newLevel})\n🔥 Streak: ${newStreak}`,
             inline: true,
           },
           {
             name: "📊 Today's Progress",
-            value: `${attemptsToday + 1} attempts`,
+            value: customJuz
+              ? "Practice Mode"
+              : `${attemptsToday + 1} attempts`,
             inline: true,
           }
         )
@@ -389,46 +421,49 @@ export async function execute(interaction) {
     collector.on("end", async (collected, reason) => {
       try {
         if (collected.size === 0 && reason !== "expired") {
-          // Timeout - apply XP penalty
-          const timeoutXpPenalty = -1;
-          const newXP = Math.max(
-            0,
-            (user.experience?.experience || 0) + timeoutXpPenalty
-          );
-          const newLevel = Math.floor(newXP / 100) + 1;
+          // Timeout - apply XP penalty (only if not custom Juz)
+          let timeoutXpPenalty = 0;
+          let newXP = user.experience?.experience || 0;
+          let newLevel = Math.floor(newXP / 100) + 1;
 
-          // Update user experience with timeout penalty
-          try {
-            await prisma.userExperience.upsert({
-              where: { userId: user.id },
-              update: {
-                experience: newXP,
-              },
-              create: {
-                userId: user.id,
-                experience: newXP,
-              },
-            });
+          if (!customJuz) {
+            timeoutXpPenalty = -1;
+            newXP = Math.max(0, newXP + timeoutXpPenalty);
+            newLevel = Math.floor(newXP / 100) + 1;
 
-            await prisma.quranQuizTypeThreeStats.upsert({
-              where: { userId: user.id },
-              update: {
-                attempts: { increment: 1 },
-                attemptsToday: { increment: 1 },
-                timeouts: { increment: 1 },
-                streaks: 0,
-              },
-              create: {
-                userId: user.id,
-                attempts: 1,
-                attemptsToday: 1,
-                corrects: 0,
-                timeouts: 1,
-                streaks: 0,
-              },
-            });
-          } catch (dbError) {
-            console.error("Database timeout update error:", dbError.message);
+            // Update user experience with timeout penalty
+            try {
+              await prisma.userExperience.upsert({
+                where: { userId: user.id },
+                update: {
+                  experience: newXP,
+                },
+                create: {
+                  userId: user.id,
+                  experience: newXP,
+                },
+              });
+
+              await prisma.quranQuizTypeThreeStats.upsert({
+                where: { userId: user.id },
+                update: {
+                  attempts: { increment: 1 },
+                  attemptsToday: { increment: 1 },
+                  timeouts: { increment: 1 },
+                  streaks: 0,
+                },
+                create: {
+                  userId: user.id,
+                  attempts: 1,
+                  attemptsToday: 1,
+                  corrects: 0,
+                  timeouts: 1,
+                  streaks: 0,
+                },
+              });
+            } catch (dbError) {
+              console.error("Database timeout update error:", dbError.message);
+            }
           }
 
           // Create missing words image for timeout response
@@ -483,7 +518,9 @@ export async function execute(interaction) {
               },
               {
                 name: "💫 XP Penalty",
-                value: `${timeoutXpPenalty} XP\nTotal: ${newXP} XP (Level ${newLevel})`,
+                value: customJuz
+                  ? "🎓 Practice Mode - No stats affected"
+                  : `${timeoutXpPenalty} XP\nTotal: ${newXP} XP (Level ${newLevel})`,
                 inline: true,
               }
             )
