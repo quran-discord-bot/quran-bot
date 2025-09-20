@@ -2,6 +2,13 @@
 
 All notable changes to this project will be documented in this file. See [standard-version](https://github.com/conventional-changelog/standard-version) for commit guidelines.
 
+### [1.7.13](https://github.com/quran-discord-bot/quran-bot/compare/v1.7.12...v1.7.13) (2025-09-20)
+
+
+### Bug Fixes
+
+* regex error ([9dea977](https://github.com/quran-discord-bot/quran-bot/commit/9dea977eb1cbe6b9a3094be67329fdb460549dbe))
+
 ### [1.7.12](https://github.com/quran-discord-bot/quran-bot/compare/v1.7.11...v1.7.12) (2025-09-20)
 
 
