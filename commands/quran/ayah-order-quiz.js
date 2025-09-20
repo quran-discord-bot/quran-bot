@@ -16,7 +16,7 @@ import QuranCanvas from "../../utility/Canvas/QuranCanvas.js";
 const prisma = new PrismaClient();
 
 export const data = new SlashCommandBuilder()
-  .setName("[quiz]-ayah-order")
+  .setName("quiz-ayah-order")
   .setDescription(
     "Test your knowledge of verse order - determine if the first verse comes before or after the second!"
   );
