@@ -608,9 +608,8 @@ function createMissingWordsQuiz(originalText) {
   const words = originalText.trim().split(/\s+/);
 
   // Randomly decide how many words to remove (0-4)
-  const maxMissing = Math.min(5, words.length > 5 ? 5 : 0);
-  const numToRemove =
-    maxMissing === 0 ? 0 : Math.floor(Math.random() * (maxMissing + 1));
+  const maxMissing = Math.min(4, words.length > 5 ? 4 : 2);
+  const numToRemove = Math.floor(Math.random() * (maxMissing + 1));
 
   if (numToRemove === 0) {
     return {
