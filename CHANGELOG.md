@@ -2,6 +2,18 @@
 
 All notable changes to this project will be documented in this file. See [standard-version](https://github.com/conventional-changelog/standard-version) for commit guidelines.
 
+### [1.7.12](https://github.com/quran-discord-bot/quran-bot/compare/v1.7.11...v1.7.12) (2025-09-20)
+
+
+### Features
+
+* renaming the quiz ([9981516](https://github.com/quran-discord-bot/quran-bot/commit/9981516f10e653b87633b2132ef10af66168e9b3))
+
+
+### Bug Fixes
+
+* missing ayah bug ([55f8331](https://github.com/quran-discord-bot/quran-bot/commit/55f8331812e2ea205c246a9ebfe7a5e51694de8e))
+
 ### [1.7.11](https://github.com/quran-discord-bot/quran-bot/compare/v1.7.10...v1.7.11) (2025-09-19)
 
 
