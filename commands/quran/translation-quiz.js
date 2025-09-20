@@ -18,7 +18,7 @@ import QuranTranslations from "../../utility/QuranAPI/Translate.js";
 const prisma = new PrismaClient();
 
 export const data = new SlashCommandBuilder()
-  .setName("translation-quiz")
+  .setName("[quiz]-ayah-translation")
   .setDescription(
     "Test your knowledge of Quran translations - identify the correct translation!"
   );
